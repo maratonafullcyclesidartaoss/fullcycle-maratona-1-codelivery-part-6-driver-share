@@ -1,0 +1,121 @@
+{
+  "info": {
+    "_postman_id": "96e51d0e-8180-499e-acb3-cf2c0fa7deb1",
+    "name": "Driver - Driver API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "3815935"
+  },
+  "item": [
+    {
+      "name": "Contract Tests",
+      "item": [
+        {
+          "name": "driver",
+          "item": [
+            {
+              "name": "Get Driver",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Validate status 2xx ",
+                      "pm.test(\"[GET]::/drivers - Status code is 200 OK\", () => {",
+                      "  pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "// Validate if response header has matching content-type",
+                      "pm.test(\"[GET]::/drivers - Content-Type is application/json\", function () {",
+                      "   pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                      "});",
+                      "",
+                      "// Validate if response has JSON Body ",
+                      "pm.test(\"[GET]::/drivers - Response has JSON Body\", function () {",
+                      "    pm.response.to.have.jsonBody();",
+                      "});",
+                      "",
+                      "// Response Validation",
+                      "const schema = {\"type\":\"array\",\"items\": [{\"type\": \"object\", \"properties\": {\"uuid\": {\"type\": \"string\"}, \"name\": {\"type\": \"string\"}}}]};",
+                      "",
+                      "// Validate if response matches JSON schema ",
+                      "pm.test(\"[GET]::/drivers - Schema is valid\", function() {",
+                      "    pm.response.to.have.jsonSchema(schema);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{driver-Url}}/drivers",
+                  "host": ["{{driver-Url}}"],
+                  "path": ["drivers"]
+                }
+              },
+              "response": [
+                {
+                  "name": "Get Driver Response",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "http://127.0.0.1:4010/drivers",
+                      "protocol": "http",
+                      "host": ["127", "0", "0", "1"],
+                      "port": "4010",
+                      "path": ["drivers"]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": null,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json",
+                      "description": "",
+                      "type": "text"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n   \"Drivers\":[\n      {\n         \"uuid\":\"362ad018-0170-474b-9e15-5d44957cfd94\",\n         \"name\":\"Sidarta S\"\n      }\n   ]\n}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4010",
+      "type": "string"
+    },
+    {
+      "key": "driver-Url",
+      "value": "http://127.0.0.1:4010",
+      "type": "string"
+    }
+  ]
+}

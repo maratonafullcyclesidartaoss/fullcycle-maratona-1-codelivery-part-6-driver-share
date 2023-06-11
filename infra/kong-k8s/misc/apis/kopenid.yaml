@@ -1,0 +1,14 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: oidc-driver
+config:
+  client_id: "kong"
+  client_secret: "XC3GPqEo4OZtAfHg52AyQOWw22A6bHUO"
+  discovery: "http://keycloak.iam/realms/driver/.well-known/openid-configuration"
+  introspection_endpoint: "http://keycloak.iam/realms/driver/protocol/openid-connect/token/introspect"
+  bearer_only: "yes"
+  bearer_jwt_auth_enable: "yes"
+  bearer_jwt_auth_allowed_auds:
+    - account
+plugin: oidc
