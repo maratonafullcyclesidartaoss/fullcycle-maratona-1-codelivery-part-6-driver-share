@@ -14,6 +14,13 @@ spec:
       containers:
         - name: driver
           image: driver
+          resources:
+            requests:
+              cpu: "0.005"
+              memory: 20Mi
+            limits:
+              cpu: "0.005"
+              memory: 25Mi
           ports:
             - containerPort: 8081
 
@@ -21,11 +28,20 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: driver-service
+  name: driver
+  annotations:
+    ingress.kubernetes.io/service-upstream: "true"
+  labels:
+    app: driver
+    stack: echo
+    interface: rest
+    language: golang
 spec:
   type: LoadBalancer
   selector:
     app: driver
   ports:
-    - port: 80
+    - name: http
+      port: 80
+      protocol: TCP
       targetPort: 8081

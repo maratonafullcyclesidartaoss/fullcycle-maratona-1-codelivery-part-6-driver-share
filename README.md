@@ -887,6 +887,71 @@ Com isso, é possível verificar se o _design_ do contrato, exposto pelo _Prism_
 
 Então, se for feita alguma alteração na estrutura do contrato que não reflita o que o cliente espera, o teste do contrato vai acusar um problema.
 
+Após subir as alterações para o _GitHub_, é possível verificar que as validações executaram com sucesso.
+
+![Check API Contract - Success](./images/check-api-contract-success.png)
+
+Examinando os _logs_ na _Action_ _Check API Contract_, podemos ver que, após subir o _Prism_ na porta _4010_, inicia-se a execução dos testes de contrato do serviço _driver_. E, mais abaixo, os _logs_ do _Postman_ confirmam que todos os testes passaram.
+
+Dessa forma, garantimos que o contrato está coerente com o que o cliente espera.
+
+### ArgoCD
+
+Após instalar o _ArgoCD_, iremos acessar a interface administrativa e logar, conforme descrito na [documentação](https://argo-cd.readthedocs.io/en/stable/#getting-started).
+
+```
+$ mkdir infra/kong-k8s/argo
+$ touch infra/kong-k8s/argo/argo.sh
+$ vim infra/kong-k8s/argo/argo.sh
+
+#!/bin/bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+$ cd infra/kong-k8s/argo
+$ ./argo.sh
+```
+
+Mas, neste caso, para criar uma nova aplicação no _ArgoCD_, não iremos utilizar a interface do _ArgoCD_, vamos utilizar uma configuração do _ArgoCD_ via _CRDs_ (_Custom Resource Definitions_). Desse modo, assim como o _Kong_, o _ArgoCD_ também conta com o seu próprio conjunto de _CRDs_. Mas por que por utilizar _CRDs_ ao invés de utilizar a _interface_ do _ArgoCD_?
+
+A partir do arquivo de configuração, nós temos uma infraestrutura como código, porque ele representa o estado desejado do _cluster_. E, sempre que trabalhamos com _IaC_, procuramos deixar a definição da nossa infraestrutura em arquivos para que alguma ferramenta possa aplicá-los. Já se fosse utilizada a _interface_ do _ArgoCD_ e as configurações da aplicação se perdessem por algum motivo, como perda da base de dados, por exemplo, não teria como reaplicar essas configurações.
+
+```
+$ mkdir infra/argo-apps
+$ touch infra/argo-apps/driver.yaml
+$ vim infra/argo-apps/driver.yaml
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: driver
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    path: k8s
+    repoURL: https://github.com/maratonafullcyclesidartaoss/fullcycle-maratona-1-codelivery-part-6-driver-share.git
+    targetRevision: HEAD
+    kustomize:
+  destination:
+    namespace: driver
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+Mas, antes de aplicar o _Application_ do _ArgoCD_, vamos atualizar o manifesto _driver.yaml_ no diretório _k8s_ e subir para o _GitHub_, pois é esse o diretório que o _ArgoCD_ vai monitorar para aplicar os objetos da aplicação _driver_ no _cluster Kubernetes_:
+
+```
+
+```
+
 ### Destruindo a infraestrutura
 
 Chegou o momento de liberar os recursos no ambiente _cloud_.
