@@ -7,5 +7,5 @@ curl --location --request POST 'http://keycloak.iam/realms/driver/protocol/openi
 --data-urlencode 'grant_type=password' \
 --data-urlencode 'username=maria' \
 --data-urlencode 'password=maria' \
---data-urlencode 'client_secret=XC3GPqEo4OZtAfHg52AyQOWw22A6bHUO' \
+--data-urlencode 'client_secret=gHeYm7teVX4JEb1Vm8ghEJ7EK06IOw4e' \
 --data-urlencode 'scope=openid'

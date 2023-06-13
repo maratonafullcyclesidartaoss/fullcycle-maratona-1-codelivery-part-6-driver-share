@@ -5,8 +5,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "kong"
     konghq.com/override: do-not-preserve-host
-    # konghq.com/plugins: oidc-driver,rl-by-header,prometheus-driver
-    konghq.com/plugins: oidc-driver
+    konghq.com/plugins: oidc-driver,rl-by-header,prometheus-driver
 spec:
   rules:
     - http:
