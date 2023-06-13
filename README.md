@@ -60,9 +60,9 @@ Nesta sexta versão, trabalhamos com tecnologias relacionadas aos processos de m
 
 Nesta parte do projeto, estamos nos aproximando mais de um ambiente de Produção, aonde integramos uma ferramenta de _API Gateway_, o _Kong API Gateway_, ao _cluster Kubernetes_. O _Kong_, além de desempenhar o seu papel de ponto único de entrada (_entrypoint_) na infraestrutura, roteando as chamadas para os respectivos serviços no _cluster_, também permite adicionar _plugins_ que servirão para:
 
-1. Aplicar autenticação às rotas, utilizando o padrão _OpenID Connect_;
-2. Aplicar _rate limiting_ às rotas;
-3. Aplicar coleta de métricas e logs para monitorarmos o comportamento da aplicação e do próprio _API Gateway_ em Produção.
+    1. Aplicar autenticação às rotas, utilizando o padrão _OpenID Connect_;
+    2. Aplicar _rate limiting_ às rotas;
+    3. Aplicar coleta de métricas e logs para monitorarmos o comportamento da aplicação e do próprio _API Gateway_ em Produção.
 
 ### Iniciando a infraestrutura
 
@@ -503,10 +503,10 @@ kubectl apply -f infra/kong-k8s/misc/apis/kratelimit.yaml -n driver
 
 Neste caso, estamos configurando:
 
-- Um _rate limiting_ de 10 mil _requests_ por segundo;
-- Um atributo do _header_ (_limit_by: header_) para fazer o _rate limiting_;
-- Uma política local (_policy: local_), ao invés de utilizar _Redis_, por exemplo, para fazer a contagem a partir de cada instância de _Kong_;
-- O _header_name_ como _X-Credential-Identifier_. Ao utilizar-se o _plugin_ de _OpenID Connect_ da comunidade do _Kong_, esse _plugin_ cria o _header_, identificando o usuário do _token_. O _X-Credential-Identifier_, refere-se, portanto, a uma identificação de usuário. Neste caso, o _rate limiting_ está sendo feito por usuário, utilizando o valor do atributo _sub_ do _token_ _JWT_.
+    - Um _rate limiting_ de 10 mil _requests_ por segundo;
+    - Um atributo do _header_ (_limit_by: header_) para fazer o _rate limiting_;
+    - Uma política local (_policy: local_), ao invés de utilizar _Redis_, por exemplo, para fazer a contagem a partir de cada instância de _Kong_;
+    - O _header_name_ como _X-Credential-Identifier_. Ao utilizar-se o _plugin_ de _OpenID Connect_ da comunidade do _Kong_, esse _plugin_ cria o _header_, identificando o usuário do _token_. O _X-Credential-Identifier_, refere-se, portanto, a uma identificação de usuário. Neste caso, o _rate limiting_ está sendo feito por usuário, utilizando o valor do atributo _sub_ do _token_ _JWT_.
 
 O _Kong_ conta também com a idéia de _plugins_ globais, onde as configurações do _plugin_ não têm escopo de _namespace_, logo, elas valem para todo o _cluster_.
 
@@ -826,14 +826,16 @@ Busca-se, no final, com o _APIOps_, aumentar a qualidade da _API_, para que ela 
 
 Em suma, o _APIOps_ se preocupa em:
 
-- Armazenar e versionar todo o estado da _API_ no _Git_;
-- Utilizar modelos de _Pull Requests_ para que as ferramentas apliquem: 1. Validações de conformidade do contrato; 2. Testes de contrato;
+    - Armazenar e versionar todo o estado da _API_ no _Git_;
+    - Utilizar modelos de _Pull Requests_ para que as ferramentas apliquem: 1. Validações de conformidade do contrato; 2. Testes de contrato;
 
 Nesse sentido, na próxima sessão, veremos como aplicar testes de contrato a partir do uso de ferramentas integradas no processo de _CI_.
 
 ### Checando contratos
 
-Neste momento, vamos definir uma _suite_ de testes que representam a interação do cliente, ou seja, o que o cliente espera quando interage com a nossa _API_ e, para isso, iremos utilizar o mecanismo de testes do _Postman_:
+Neste momento, vamos definir uma _suite_ de testes que representam a interação do cliente, ou seja, o que o cliente espera quando interage com a nossa _API_.
+
+Para isso, iremos utilizar o mecanismo de testes do _Postman_:
 
 ```
 // Validate status 2xx
@@ -862,10 +864,10 @@ pm.test("[GET]::/drivers - Schema is valid", function() {
 
 Dessa forma, uma vez que seja feito um _GET_ em _/drivers_, espera-se que:
 
-- No primeiro teste, o _status code_ do _response_ seja 200;
-- No segundo teste, o _Content-Type_ no _header_ do _response_ seja _application/json_
-- No terceiro teste, o corpo do _response_ contenha _JSON_;
-- No quarto teste, seja validado o _schema_ do _JSON_, ou seja, o nome e o tipo das propriedades contidas no _JSON_ que compõe o corpo do _response_.
+    - No primeiro teste, o _status code_ do _response_ seja 200;
+    - No segundo teste, o _Content-Type_ no _header_ do _response_ seja _application/json_
+    - No terceiro teste, o corpo do _response_ contenha _JSON_;
+    - No quarto teste, seja validado o _schema_ do _JSON_, ou seja, o nome e o tipo das propriedades contidas no _JSON_ que compõe o corpo do _response_.
 
 A idéia principal, aqui, é ter uma _suite_ de testes que representa o que o cliente espera da _API_ em termos de validação de contrato e em termos de resposta, sem considerar, neste caso, regras de negócio - apenas o _design_ da _API_, ou seja, o conjunto de elementos que formam o _response_ de determinada requisição.
 
@@ -881,13 +883,13 @@ Agora, como automatizar essa _suite_ de testes? O _Postman_ permite exportar ess
           prism mock docs/swagger.yaml & sleep 2 && newman run docs/driver.postman.json
 ```
 
-Conjuntamente ao _Newman_, iremos utilizar uma ferramenta de _mocking_ chamada _[Prism](https://docs.stoplight.io/docs/prism/83dbbd75532cf-http-mocking)_. O _Prism_ vai expor a rota baseado na estrutura de contrato da _API_ (i.e., o arquivo _yaml_ em formtato _OpenAPI_), aonde são definidos os objetos de _request_ e _response_.
+Conjuntamente ao _Newman_, iremos utilizar uma ferramenta de _mocking_ chamada _[Prism](https://docs.stoplight.io/docs/prism/83dbbd75532cf-http-mocking)_. O _Prism_ vai expor a rota baseado na estrutura de contrato da _API_ (i.e., o arquivo _yaml_ em formtato _OpenAPI_). Ele consegue, por exemplo, encontrar a definição para os objetos de _request_ e _response_ a partir de propriedades _example_ dentro dessa estrutura.
 
-Com isso, é possível verificar se o _design_ do contrato, exposto pelo _Prism_, está aderente ao que o cliente espera. E a definição de o que o cliente espera é contemplada no teste de contrato que o _Newman_ executa.
+Com isso, é possível verificar se o _design_ do contrato, exposto através do _Prism_, está aderente ao que o cliente espera. E a definição de o que o cliente espera é contemplado no teste de contrato que o _Newman_ executa.
 
-Então, se for feita alguma alteração na estrutura do contrato que não reflita o que o cliente espera, o teste do contrato vai acusar um problema.
+Então, se for feita alguma alteração na estrutura do contrato que não reflita o que o cliente espera, o teste de contrato vai acusar o problema através dos testes do _Postman_.
 
-Após subir as alterações para o _GitHub_, é possível verificar que as validações executaram com sucesso.
+Após subir as alterações para o _GitHub_, é possível verificar que as validações executaram com sucesso:
 
 ![Check API Contract - Success](./images/check-api-contract-success.png)
 
@@ -946,11 +948,567 @@ spec:
       - CreateNamespace=true
 ```
 
-Mas, antes de aplicar o _Application_ do _ArgoCD_, vamos atualizar o manifesto _driver.yaml_ no diretório _k8s_ e subir para o _GitHub_, pois é esse o diretório que o _ArgoCD_ vai monitorar para aplicar os objetos da aplicação _driver_ no _cluster Kubernetes_:
+Mas, antes de aplicar o _Application_ do _ArgoCD_, vamos atualizar o manifesto _driver.yaml_ no diretório _k8s_ e subir para o _GitHub_, porque é esse o diretório que o _ArgoCD_ vai monitorar para aplicar os objetos da aplicação _driver_ no _cluster Kubernetes_:
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: driver
+spec:
+  selector:
+    matchLabels:
+      app: driver
+  template:
+    metadata:
+      labels:
+        app: driver
+    spec:
+      containers:
+        - name: driver
+          image: driver
+          resources:
+            requests:
+              cpu: "0.005"
+              memory: 20Mi
+            limits:
+              cpu: "0.005"
+              memory: 25Mi
+          ports:
+            - containerPort: 8081
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: driver
+  annotations:
+    ingress.kubernetes.io/service-upstream: "true"
+  labels:
+    app: driver
+    stack: echo
+    interface: rest
+    language: golang
+spec:
+  type: LoadBalancer
+  selector:
+    app: driver
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8081
+```
+
+E, neste momento, podemos aplicar o _Application_ do _ArgoCD_:
+
+```
+$ kubectl apply -f infra/argo-apps/driver.yaml -n argocd
+```
+
+Lembrando que a configuração do _ArgoCD_ escuta _CRDs_ dentro do _namespace_ _argocd_. Mas, os objetos resultantes desse _CRD_ vão ser criados no _namespace_ _driver_. Então, uma vez que é criado o _CRD_, o próprio objeto _Application_ está configurado para sincronizar automaticamente o repositório do _GitHub_ com o _cluster Kubernetes_:
+
+![Application driver synced](./images/application-driver-synced.png)
+
+### Testes de Carga
+
+O nosso objetivo, agora, é iniciar com _Load Tests_, com foco na ferramenta do _Kong API Gateway_.
+
+Um _API Gateway_ depende de alguns componentes, principalmente o ecossistema de aplicações. Então, é necessário entender a relação de _performance_ entre o _API Gateway_ e as chamadas dos serviços. É necessário entender, por exemplo, se é a aplicação que está apresentando problemas ou se é o _API Gateway_.
+
+Dessa forma, vamos aplicar uma carga para verificar como se dará o comportamento da aplicação e do próprio _API Gateway_.
+
+Deve-se salientar que, neste caso, serão aplicados _load tests_, não serão aplicados _stress tests_, com o objetivo de derrubar a aplicação. O objetivo, aqui, é analisar como o nosso ecossistema conseguirá ficar estável ou não, variando a carga de requisições, ou seja, como a aplicação se comporta com uma carga um pouco mais alta do que a convencional.
+
+Para isso, iremos utilizar duas ferramentas, que vão nos auxiliar no processo de escrita e execução dos testes.
+
+#### K6
+
+Para criar os testes, vamos utilizar o _[K6](https://k6.io/)_. É uma ferramenta _open source_, que faz parte do ecossistema do _Grafana_. Ela permite que sejam escritos testes em _JavaScript_ para serem executados via linha de comando:
+
+```
+$ mkdir infra/load
+$ touch infra/load/create_driver_load.js
+
+import { check } from "k6";
+import http from "k6/http";
+
+const KONG_CLIENT = "kong";
+const KONG_SECRET = "gHeYm7teVX4JEb1Vm8ghEJ7EK06IOw4e";
+const USER = "maria";
+const PASS = "maria";
+
+export const options = {
+  stages: [
+    { target: 0, duration: "10s" },
+    { target: 50, duration: "60s" },
+    { target: 100, duration: "60s" },
+    { target: 200, duration: "180s" },
+  ],
+};
+
+function authenticateUsingKeycloak(clientId, clientSecret, username, pass) {
+  const formData = {
+    client_id: clientId,
+    grant_type: "password",
+    username: username,
+    password: pass,
+    client_secret: clientSecret,
+    scope: "openid",
+  };
+  const headers = { "Content-Type": "application/x-www-form-urlencoded" };
+  const response = http.post(
+    "http://keycloak.iam/realms/driver/protocol/openid-connect/token",
+    formData,
+    { headers }
+  );
+  return response.json();
+}
+
+export function setup() {
+  return authenticateUsingKeycloak(KONG_CLIENT, KONG_SECRET, USER, PASS);
+}
+
+export default function (data) {
+  const params = {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${data.access_token}`, // or `Bearer ${clientAuthResp.access_token}`
+    },
+  };
+  let response = http.get(
+    "http://kong-kong-proxy.kong/api/driver/drivers",
+    params
+  );
+  check(response, {
+    "is status 200": (r) => r.status === 200,
+  });
+}
+```
+
+Com a constante _options_, são definidos os estágios da carga. Por exemplo, no primeiro estágio, temos uma carga para 0 _virtual users_ por 10 segundos. No estágio seguinte, configuramos uma carga para 50 _virtual users_ durante 60 segundos. Depois, configuramos para que suba para 100 _virtual users_ e que dure por 60 segundos e, por fim, subimos para 200 _virtual users_ uma carga que irá durar por 180 segundos.
+
+Adicionalmente, percebe-se que foram adicionadas funções _JavaScript_ para lidar com autenticação, porque o objetivo é testar a _API_ conjuntamente com o fluxo de _OpenID Connect_, de forma a estarmos o mais próximo possível do comportamento em ambiente de Produção.
+
+Interessante notar que o _K6_ tem um _lifecycle_ de teste, similarmente a algumas linguagens de programação (e.g., _@BeforeClass_, @BeforeAll, @BeforeEach), que prepara o ambiente para o teste. Por exemplo, a função _setup()_, que roda antes do teste, é responsável por buscar o _token_. Já a _default function_ executa o teste de carga.
+
+#### Testkube
+
+O nosso objetivo é rodar os testes em um ambiente escalável, ou seja, dentro de um _cluster_ _Kubernetes_. E, para isso, vamos instalar outra ferramenta que automatiza o processo de execução dos testes: o _Testkube_. Assim, a partir da criação do _script_ do _K6_ e da instalação do _Testkube_, será possível aplicar a carga.
+
+O _Testkube_, a partir de artefatos do _Kubernetes_, ajuda a rodar a carga dentro do _cluster_; ele automatiza o processo de execução de testes, atuando como um orquestrador do _script_ _K6_ que vai rodar.
+
+```
+$ mkdir infra/load/infra
+$ touch infra/load/infra/install.sh
+
+#!/bin/bash
+kubectl testkube install
+
+$ cd infra/load/infra/
+$ sudo chmod -R 777 .
+$ ./install.sh
+```
+
+A partir da instalação, é criado um novo _namespace_, chamado _testkube_, contendo diversos objetos que vão provisionar a infraestrutura para a execução dos testes:
+
+```
+$ kubectl get all -n testkube
+
+NAME                                                        READY   STATUS    RESTARTS        AGE
+pod/testkube-api-server-5b5db9b745-9jpjc                    1/1     Running   1 (5m11s ago)   5m52s
+pod/testkube-dashboard-65b84ff9d-qqwbq                      1/1     Running   0               5m52s
+pod/testkube-minio-testkube-bd549c85d-mhdkz                 1/1     Running   0               5m52s
+pod/testkube-mongodb-d78699775-4lbg2                        1/1     Running   0               5m52s
+pod/testkube-nats-0                                         3/3     Running   0               5m52s
+pod/testkube-nats-box-5b555bc9c4-bhrdt                      1/1     Running   0               5m52s
+pod/testkube-operator-controller-manager-76b79584b4-bzwwx   2/2     Running   0               5m52s
+
+NAME                                                           TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)                                                 AGE
+service/testkube-api-server                                    ClusterIP   10.7.241.183   <none>        8088/TCP                                                5m53s
+service/testkube-dashboard                                     ClusterIP   10.7.245.166   <none>        8080/TCP                                                5m53s
+service/testkube-minio-service-testkube                        ClusterIP   10.7.250.173   <none>        9000/TCP,9090/TCP,9443/TCP                              5m53s
+service/testkube-mongodb                                       ClusterIP   10.7.243.157   <none>        27017/TCP                                               5m53s
+service/testkube-nats                                          ClusterIP   None           <none>        4222/TCP,6222/TCP,8222/TCP,7777/TCP,7422/TCP,7522/TCP   5m53s
+service/testkube-operator-controller-manager-metrics-service   ClusterIP   10.7.250.233   <none>        8443/TCP                                                5m53s
+service/testkube-operator-webhook-service                      ClusterIP   10.7.243.202   <none>        443/TCP                                                 5m53s
+
+NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/testkube-api-server                    1/1     1            1           5m53s
+deployment.apps/testkube-dashboard                     1/1     1            1           5m53s
+deployment.apps/testkube-minio-testkube                1/1     1            1           5m53s
+deployment.apps/testkube-mongodb                       1/1     1            1           5m53s
+deployment.apps/testkube-nats-box                      1/1     1            1           5m53s
+deployment.apps/testkube-operator-controller-manager   1/1     1            1           5m53s
+
+NAME                                                              DESIRED   CURRENT   READY   AGE
+replicaset.apps/testkube-api-server-5b5db9b745                    1         1         1       5m54s
+replicaset.apps/testkube-dashboard-65b84ff9d                      1         1         1       5m54s
+replicaset.apps/testkube-minio-testkube-bd549c85d                 1         1         1       5m54s
+replicaset.apps/testkube-mongodb-d78699775                        1         1         1       5m54s
+replicaset.apps/testkube-nats-box-5b555bc9c4                      1         1         1       5m54s
+replicaset.apps/testkube-operator-controller-manager-76b79584b4   1         1         1       5m54s
+
+NAME                             READY   AGE
+statefulset.apps/testkube-nats   1/1     5m54s
+```
+
+Dessa forma, a ferramenta já está provisionada para receber alguma carga.
+
+### Preparando o cluster
+
+#### metrics-server
+
+Um objeto _Deployment_ tem, por padrão, definido o número de réplicas como apenas um. Só que esse não é o comportamento esperado quando se faz teste de carga: não se espera que o número de instâncias fique em apenas um.
+
+O comportamento desejado é que o _Kubernetes_, com base em algumas métricas do _Deployment_, seja capaz de instanciar novas réplicas da aplicação, fazendo com que ela fique com mais instâncias e consiga receber maior carga. Por exemplo: ao bater uma métrica de 70% de processamento, o _Kubernetes_ já começa a subir novas instâncias, de forma a escalar horizontalmente. Esse processo também é conhecido como _autoscaling_ e é uma das funcionalidades mais conhecidas do _Kubernetes_.
+
+O nosso objetivo aqui, então, é, primeiramente, preparar o _cluster_ para ele que ele consiga executar o processo de _autoscaling_.
+
+A primeira coisa que devemos fazer é verificar se o _metrics-server_ está instalado no _cluster_. Normalmente, o _cloud provider_ já habilita esse recurso por padrão.
+
+```
+$ kubectl get po -n kube-system
+
+NAME                                                             READY   STATUS    RESTARTS   AGE
+event-exporter-gke-755c4b4d97-4xzql                              2/2     Running   0          5h43m
+fluentbit-gke-bbwmb                                              2/2     Running   0          5h38m
+fluentbit-gke-jqr5t                                              2/2     Running   0          5h37m
+fluentbit-gke-qrhnx                                              2/2     Running   0          5h38m
+gke-metrics-agent-28jdx                                          2/2     Running   0          5h37m
+gke-metrics-agent-5p4sm                                          2/2     Running   0          5h38m
+gke-metrics-agent-tntnq                                          2/2     Running   0          5h38m
+konnectivity-agent-65c88cbd8d-8f9zq                              1/1     Running   0          5h43m
+konnectivity-agent-65c88cbd8d-dqp4s                              1/1     Running   0          5h37m
+konnectivity-agent-65c88cbd8d-nrlmd                              1/1     Running   0          5h37m
+konnectivity-agent-autoscaler-7dc78c8c9-7ldrf                    1/1     Running   0          5h43m
+kube-dns-5b5dfcd97b-n5m4k                                        4/4     Running   0          5h43m
+kube-dns-5b5dfcd97b-xq6r5                                        4/4     Running   0          5h43m
+kube-dns-autoscaler-5f56f8997c-b7bdn                             1/1     Running   0          5h43m
+kube-proxy-gke-maratona-fullcyc-maratona-fullcyc-0b912d49-mh12   1/1     Running   0          5h38m
+kube-proxy-gke-maratona-fullcyc-maratona-fullcyc-dd923b2a-xv07   1/1     Running   0          5h37m
+kube-proxy-gke-maratona-fullcyc-maratona-fullcyc-f4d99fd0-fc4v   1/1     Running   0          5h38m
+l7-default-backend-676d84669b-t9fv9                              1/1     Running   0          5h43m
+metrics-server-v0.5.2-67864775dc-tltmv                           2/2     Running   0          5h43m
+pdcsi-node-hhrhh                                                 2/2     Running   0          5h37m
+pdcsi-node-kkv7n                                                 2/2     Running   0          5h38m
+pdcsi-node-kmr46                                                 2/2     Running   0          5h38m
+```
+
+O _metrics-server_, basicamente, é um recurso do _Kubernetes_ que organiza as métricas dos _PODs_, coletando a utilização de memória e _CPU_ deles para que ele forneça as informações para o _HorizontalPODAutoscaler_ (_HPA_), que é o objeto do _Kubernetes_ que vai fazer o _upscaling_ e _downscaling_ da aplicação. Assim, para o _HPA_ escalar, ele precisa de métricas, que são providas pelo _metrics-server_.
+
+#### HPA
+
+O _HPA_ é um objeto do _Kubernetes_ aonde se define o seguinte comportamento: escalar o _POD_ assim que ele chegar em uma determinada condição. A condição padrão que pode-se utilizar é memória e _CPU_:
+
+```
+ $ mkdir infra/kong-k8s/misc/apps/hpa
+ $ touch infra/kong-k8s/misc/apps/hpa/driver.yaml
+ $ vim infra/kong-k8s/misc/apps/hpa/driver.yaml
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: driver-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: driver
+  minReplicas: 1
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 5
 
 ```
 
+Não deve-se esquecer de definir o _Deployment_ para o qual esse _HPA_ está associado.
+
+Neste caso, definimos um número máximo de 20 réplicas. O que isso significa? Significa que, se chegar a atingir o limite de 20 instâncias, com base na carga de processamento de _CPU_, o _Kubernetes_ não vai subir mais instâncias da aplicação.
+
+A propriedade _targetCPUUtilizationPercentage_ indica que, se o _POD_ atingir 70% de utilização de _CPU_, o _Kubernetes_ começa a subir novas instâncias, baseando-se na definição do objeto de _Deployment_, até atingir o limite de 20 instâncias.
+
 ```
+  $ kubectl apply -f infra/kong-k8s/misc/apps/hpa/driver.yaml -n driver
+```
+
+Após aplicar o _HPA_, vamos consultar esse objeto no _cluster_:
+
+```
+$ kubectl get horizontalpodautoscaler -n driver
+
+NAME         REFERENCE           TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
+driver-hpa   Deployment/driver   0%/5%     1         20        4          2m57s
+```
+
+A partir dessa consulta, já sabemos que o _metrics-server_ está funcionando, porque está apresentando os valores na coluna _TARGETS_, o que indica que o _HPA_ está recebendo as métricas.
+
+#### Prometheus
+
+Neste momento, é necessário configurar o _Prometheus_ para fazer o _scraping_ de métricas do _Kong_ de forma a coletar métricas de todos os _namespaces_, usando _ServiceMonitor_.
+
+> O Prometheus Operator inclui um _CRD_ que permite a definição do _ServiceMonitor_. O ServiceMonitor é usado para definir uma aplicação da qual se deseja extrair métricas a partir do _cluster_ do _Kubernetes_; o _controller_ aciona os ServiceMonitors que definimos e cria automaticamente a configuração necessária do Prometheus. Fonte: <https://observability.thomasriley.co.uk/prometheus/configuring-prometheus/using-service-monitors/>
+
+A partir de agora, então, o _Prometheus_ passa a coletar métricas de _API_ para os testes de carga, ao invés de coletar métricas de utilização de _CPU_.
+
+```
+$ touch infra/kong-k8s/misc/prometheus/prometheus.yaml
+$ vim infra/kong-k8s/misc/prometheus/prometheus.yaml
+
+prometheus:
+  prometheusSpec:
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+
+$ cd infra/kong-k8s/misc/prometheus/
+$ ./prometheus.sh
+```
+
+É importante lembrar, também, que deve-se setar essas duas variáveis de _ServiceMonitor_ no momento da instalação do _Kong_ para que o _Prometheus_ esteja habilitado para fazer a coleta de métricas:
+
+    - --set serviceMonitor.enabled=true
+    - --set serviceMonitor.labels.release=promstack
+
+#### Ingress
+
+Neste momento, precisamos adicionar os _plugins_ do _Prometheus_ e de _rate-limit_ no nosso objeto _Ingress_:
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: driver-api
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/override: do-not-preserve-host
+    konghq.com/plugins: oidc-driver,rl-by-header,prometheus-driver
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /api/driver
+            pathType: Prefix
+            backend:
+              service:
+                name: driver
+                port:
+                  number: 80
+```
+
+Apenas observando que foi configurado um _rate-limit_ bastante alto de 10.000 requisições por segundo para não ser barrado por _rate-limit_ nos testes de carga.
+
+Dessa forma, a nossa _API_ vai conter os _plugins_ de: - _OpenID Connect_ para validar autenticação; - _rate-limit_ por _header_, isto é, por usuário; - Métricas.
+
+```
+$ kubectl apply -f infra/kong-k8s/misc/apis/driver-api.yaml -n driver
+```
+
+Com isso, o _cluster_ está preparado para receber carga.
+
+### Aplicando cargas
+
+Antes de aplicar as cargas de testes, é importante verificarmos se o _ServiceMonitor_ foi habilitado na instalação do _Kong_:
+
+```
+$ kubectl get servicemonitor -n kong
+
+No resources found in kong namespace.
+```
+
+Caso o _ServiceMonitor_ não esteja habilitado, não serão coletadas métricas para a aplicação.
+
+Por que isso pode acontecer? Dependendo da ordem em que foi instalado o _Prometheus_, pode ser que, no momento em que foi instalado o _Kong_, o _ServiceMonitor_ não tenha sido instalado porque o _Prometheus_ foi instalado depois.
+
+Para resolver isso, basta rodar a instalação do _Kong_ novamente.
+
+```
+$ helm delete kong -n kong
+$ cd infra/kong-k8s/kong/
+$ ./kong.sh
+
+$ kubectl get servicemonitor -n kong
+
+NAME        AGE
+kong-kong   12s
+```
+
+Neste momento, vamos fazer um _port-forward_ para o _Grafana_:
+
+```
+$ kubectl port-forward svc/prometheus-stack-grafana 3000:80 -n monitoring
+```
+
+Ao acessar _localhost:3000_, é aberto a tela de _login_:
+
+![Tela de login do Grafana](./images/tela-login-grafana.png)
+
+Para logar, deve-se informar: _Username: admin_, _Password: prom-operator_. É aberto a tela inicial do Grafana:
+
+![Tela inicial do Grafana](./images/tela-inicial-grafana.png)
+
+No nosso caso, é necessário importar _dashboards_ para o _Kong_. Então, vamos na aba lateral esquerda / _Dashboards / botão New / Import_.
+
+![Tela de import do Grafana](./images/tela-import-grafana.png)
+
+O _Kong_ possui um _dashboard_ pronto do _Grafana_. Se formos procurar na _Internet_ pelo _Kong_ oficial do _dashboard_ _Grafana_, vamos encontrar um com o _ID_ 7424.
+
+Então, vamos carregar pelo ID 7424 na tela de _Import dashboard_ do _Grafana_, clicando em _Load_. Após, selecionamos _Prometheus_ e fazemos o _import_ do _dashboard_ do _Kong_.
+
+![Tela inicial do dashboard Kong](./images/tela-inicial-do-dashboard-kong.png)
+
+Por enquanto, não tem nada relacionado ao teste de carga em si, porque os testes não foram executados ainda, mas o _dashboard_ está pronto para ser análise.
+
+Agora, como vamos fazer a criação dos testes? A partir de um _script_:
+
+```
+$ touch infra/load/infra/load.sh
+$ vim infra/load/infra/load.sh
+
+#!/bin/bash
+kubectl testkube create test --file ../create_driver_load.js --type k6/script --name create-driver-load
+kubectl testkube run test create-driver-load -f
+
+$ cd infra/load/infra/
+$ sudo chmod -R 777 .
+$ ./load
+```
+
+O que esse _script_ faz é criar o teste de carga no _cluster_ e rodá-lo em seguida. Caso seja necessário removê-lo do _cluster_, basta rodar:
+
+```
+$ kubectl testkube delete test create-driver-load
+```
+
+Após aplicar o _script_, vamos verificar o que foi criado no _namespace_ do _testkube_:
+
+```
+$ kubectl get po -n testkube
+NAME                                                    READY   STATUS    RESTARTS        AGE
+6487b308d5875516d25437ea-ggdxc                          1/1     Running   0               17s
+testkube-api-server-5b5db9b745-9jpjc                    1/1     Running   1 (5h55m ago)   5h56m
+testkube-dashboard-65b84ff9d-qqwbq                      1/1     Running   0               5h56m
+testkube-minio-testkube-bd549c85d-mhdkz                 1/1     Running   0               5h56m
+testkube-mongodb-d78699775-4lbg2                        1/1     Running   0               5h56m
+testkube-nats-0                                         3/3     Running   0               5h56m
+testkube-nats-box-5b555bc9c4-bhrdt                      1/1     Running   0               5h56m
+testkube-operator-controller-manager-76b79584b4-bzwwx   2/2     Running   1 (4h10m ago)   5h56m
+```
+
+O primeiro identificador representa o _POD_ de teste que a infraestrutura do _testkube_ provisionou. Então, vamos ver os _logs_ desse _container_:
+
+```
+$ kubectl logs 6487b308d5875516d25437ea-ggdxc -f -n testkube
+
+{"type":"line","content":"\nrunning (4m37.8s), 182/200 VUs, 127419 complete and 0 interrupted iterations\ndefault   [  90% ] 182/200 VUs  4m37.7s/5m10.0s\n","time":"2023-06-13T00:11:24.646157633Z"}
+{"type":"line","content":"\nrunning (4m38.8s), 182/200 VUs, 127774 complete and 0 interrupted iterations\ndefault   [  90% ] 182/200 VUs  4m38.7s/5m10.0s\n","time":"2023-06-13T00:11:25.645117657Z"}
+{"type":"line","content":"\nrunning (4m39.8s), 183/200 VUs, 128369 complete and 0 interrupted iterations\ndefault   [  90% ] 183/200 VUs  4m39.7s/5m10.0s\n","time":"2023-06-13T00:11:26.644992687Z"}
+{"type":"line","content":"\nrunning (4m40.8s), 183/200 VUs, 128908 complete and 0 interrupted iterations\ndefault   [  91% ] 183/200 VUs  4m40.7s/5m10.0s\n","time":"2023-06-13T00:11:27.648250793Z"}
+{"type":"line","content":"\nrunning (4m41.8s), 184/200 VUs, 129483 complete and 0 interrupted iterations\ndefault   [  91% ] 184/200 VUs  4m41.7s/5m10.0s\n","time":"2023-06-13T00:11:28.644962351Z"}
+{"type":"line","content":"\nrunning (4m42.8s), 184/200 VUs, 130012 complete and 0 interrupted iterations\ndefault   [  91% ] 184/200 VUs  4m42.7s/5m10.0s\n","time":"2023-06-13T00:11:29.645647018Z"}
+{"type":"line","content":"\nrunning (4m43.8s), 185/200 VUs, 130486 complete and 0 interrupted iterations\ndefault   [  92% ] 185/200 VUs  4m43.7s/5m10.0s\n","time":"2023-06-13T00:11:30.646004657Z"}
+{"type":"line","content":"\nrunning (4m44.8s), 185/200 VUs, 130865 complete and 0 interrupted iterations\ndefault   [  92% ] 185/200 VUs  4m44.7s/5m10.0s\n","time":"2023-06-13T00:11:31.646271768Z"}
+{"type":"line","content":"\nrunning (4m45.8s), 186/200 VUs, 131194 complete and 0 interrupted iterations\ndefault   [  92% ] 186/200 VUs  4m45.7s/5m10.0s\n","time":"2023-06-13T00:11:32.645000278Z"}
+{"type":"line","content":"\nrunning (4m46.8s), 187/200 VUs, 131724 complete and 0 interrupted iterations\ndefault   [  92% ] 187/200 VUs  4m46.7s/5m10.0s\n","time":"2023-06-13T00:11:33.648363023Z"}
+{"type":"line","content":"\nrunning (4m47.8s), 187/200 VUs, 132262 complete and 0 interrupted iterations\ndefault   [  93% ] 187/200 VUs  4m47.7s/5m10.0s\n","time":"2023-06-13T00:11:34.646583281Z"}
+{"type":"line","content":"\nrunning (4m48.8s), 188/200 VUs, 132715 complete and 0 interrupted iterations\ndefault   [  93% ] 188/200 VUs  4m48.7s/5m10.0s\n","time":"2023-06-13T00:11:35.645123819Z"}
+{"type":"line","content":"\nrunning (4m49.8s), 188/200 VUs, 133262 complete and 0 interrupted iterations\ndefault   [  93% ] 188/200 VUs  4m49.7s/5m10.0s\n","time":"2023-06-13T00:11:36.644955827Z"}
+{"type":"line","content":"\nrunning (4m50.8s), 189/200 VUs, 133701 complete and 0 interrupted iterations\ndefault   [  94% ] 189/200 VUs  4m50.7s/5m10.0s\n","time":"2023-06-13T00:11:37.645327624Z"}
+{"type":"line","content":"\nrunning (4m51.8s), 189/200 VUs, 134210 complete and 0 interrupted iterations\ndefault   [  94% ] 189/200 VUs  4m51.7s/5m10.0s\n","time":"2023-06-13T00:11:38.6463088Z"}
+{"type":"line","content":"\nrunning (4m52.8s), 190/200 VUs, 134786 complete and 0 interrupted iterations\ndefault   [  94% ] 190/200 VUs  4m52.7s/5m10.0s\n","time":"2023-06-13T00:11:39.64489324Z"}
+{"type":"line","content":"\nrunning (4m53.8s), 190/200 VUs, 135308 complete and 0 interrupted iterations\ndefault   [  95% ] 190/200 VUs  4m53.7s/5m10.0s\n","time":"2023-06-13T00:11:40.644986375Z"}
+{"type":"line","content":"\nrunning (4m54.8s), 191/200 VUs, 135683 complete and 0 interrupted iterations\ndefault   [  95% ] 191/200 VUs  4m54.7s/5m10.0s\n","time":"2023-06-13T00:11:41.64611089Z"}
+{"type":"line","content":"\nrunning (4m55.8s), 192/200 VUs, 135981 complete and 0 interrupted iterations\ndefault   [  95% ] 192/200 VUs  4m55.7s/5m10.0s\n","time":"2023-06-13T00:11:42.64481428Z"}
+{"type":"line","content":"\nrunning (4m56.8s), 192/200 VUs, 136510 complete and 0 interrupted iterations\ndefault   [  96% ] 192/200 VUs  4m56.7s/5m10.0s\n","time":"2023-06-13T00:11:43.64566273Z"}
+{"type":"line","content":"\nrunning (4m57.8s), 193/200 VUs, 136998 complete and 0 interrupted iterations\ndefault   [  96% ] 193/200 VUs  4m57.7s/5m10.0s\n","time":"2023-06-13T00:11:44.645977034Z"}
+{"type":"line","content":"\nrunning (4m58.8s), 193/200 VUs, 137544 complete and 0 interrupted iterations\ndefault   [  96% ] 193/200 VUs  4m58.7s/5m10.0s\n","time":"2023-06-13T00:11:45.645258667Z"}
+{"type":"line","content":"\nrunning (4m59.8s), 194/200 VUs, 138092 complete and 0 interrupted iterations\ndefault   [  97% ] 194/200 VUs  4m59.7s/5m10.0s\n","time":"2023-06-13T00:11:46.644967956Z"}
+{"type":"line","content":"\nrunning (5m00.8s), 194/200 VUs, 138555 complete and 0 interrupted iterations\ndefault   [  97% ] 194/200 VUs  5m00.7s/5m10.0s\n","time":"2023-06-13T00:11:47.645995845Z"}
+{"type":"line","content":"\nrunning (5m01.8s), 195/200 VUs, 139119 complete and 0 interrupted iterations\ndefault   [  97% ] 195/200 VUs  5m01.7s/5m10.0s\n","time":"2023-06-13T00:11:48.644903189Z"}
+{"type":"line","content":"\nrunning (5m02.8s), 195/200 VUs, 139526 complete and 0 interrupted iterations\ndefault   [  98% ] 195/200 VUs  5m02.7s/5m10.0s\n","time":"2023-06-13T00:11:49.644868162Z"}
+{"type":"line","content":"\nrunning (5m03.8s), 196/200 VUs, 140041 complete and 0 interrupted iterations\ndefault   [  98% ] 196/200 VUs  5m03.7s/5m10.0s\n","time":"2023-06-13T00:11:50.646503728Z"}
+{"type":"line","content":"\nrunning (5m04.8s), 197/200 VUs, 140604 complete and 0 interrupted iterations\ndefault   [  98% ] 197/200 VUs  5m04.7s/5m10.0s\n","time":"2023-06-13T00:11:51.645510077Z"}
+{"type":"line","content":"\nrunning (5m05.8s), 197/200 VUs, 140904 complete and 0 interrupted iterations\ndefault   [  99% ] 197/200 VUs  5m05.7s/5m10.0s\n","time":"2023-06-13T00:11:52.644998669Z"}
+{"type":"line","content":"\nrunning (5m06.8s), 198/200 VUs, 141442 complete and 0 interrupted iterations\ndefault   [  99% ] 198/200 VUs  5m06.7s/5m10.0s\n","time":"2023-06-13T00:11:53.645009462Z"}
+{"type":"line","content":"\nrunning (5m07.8s), 198/200 VUs, 141905 complete and 0 interrupted iterations\ndefault   [  99% ] 198/200 VUs  5m07.7s/5m10.0s\n","time":"2023-06-13T00:11:54.645089249Z"}
+{"type":"line","content":"\nrunning (5m08.8s), 199/200 VUs, 142313 complete and 0 interrupted iterations\ndefault   [ 100% ] 199/200 VUs  5m08.7s/5m10.0s\n","time":"2023-06-13T00:11:55.644970033Z"}
+{"type":"line","content":"\nrunning (5m09.8s), 199/200 VUs, 142791 complete and 0 interrupted iterations\ndefault   [ 100% ] 199/200 VUs  5m09.7s/5m10.0s\n","time":"2023-06-13T00:11:56.644860668Z"}
+
+```
+
+Vamos verificar o _HPA_:
+
+```
+$ watch -n 0.5 kubectl get horizontalpodautoscaler -n driver
+
+NAME         REFERENCE           TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
+driver-hpa   Deployment/driver   18%/5%    1         20        20         5h3m
+```
+
+Percebe-se que o número de réplicas fica volátil, ou seja, o _Kubernetes_ fica tentando estabilizar para conseguir atender a carga de requisições.
+
+Vamos, agora, para o _Grafana_ verificar as métricas do _Kong_. No primeiro painel, temos as métricas relacionadas ao total de requisições por segundo. Podemos ver o total de _Requests per Second_ (_RPS_), o total de _RPS_ por rota e serviço e o total de _RPS_ por rota, serviço e _status code_.
+
+![Primeiro painel do Grafana - requests por segundo](./images/primeiro-painel-grafana-requests-por-segundo.png)
+
+No primeiro gráfico de total de _RPS_, chegamos próximo a um pico de 1K de _RPS_ nos primeiros 2 minutos, baixando esse número até chegarmos a 0 _RPS_ nos próximos 4 minutos.
+
+Da mesma forma, no segundo gráfico de total de _RPS_ por rota e serviço, a rota, isto é, o serviço de _backend_ atinge um pico próximo a 1K de _RPS_ nos primeiros 2 minutos, baixando até atingir 0 nos 4 minutos seguintes.
+
+No terceiro gráfico de total de _RPS_ por rota, serviço e _status code_, percebemos o mesmo comportamento que o gráfico anterior, além de o _status code_ permanecer como 200 tanto para a rota quanto para o serviço.
+
+Outra coisa importante para analisar-se no teste de carga é o painel de latência.
+
+![Segundo painel do Grafana - latência](./images/segundo-painel-grafana-latencia.png)
+
+O que podemos perceber nesse painel?
+
+Examinando os gráficos da terceira faixa (de cima para baixo), podemos ver como o _backend_ está se comportando. Por exemplo, no gráfico de _Upstream time accross all services_, vemos que o serviço de _backend_ teve um breve pico de lentidão de apenas 1.5 segundo, mas, logo foi baixando até chegar próximo de 500ms, o que revela um bom comportamento - a _API_ de _backend_ está se comportando dentro do esperado.
+
+Já na primeira faixa de gráficos, é possível analisar a _performance_ do _proxy_ do _Kong_. Se formos analisar o tempo dos _plugins_ de _rate limit_, métricas e _OpenID Connect_, podemos perceber que não está muito baixo: ele atinge um pico de até 20ms e vai diminuindo até ficar próximo de 5ms. Mas, considerando-se que estamos em um ambiente _cloud_, onde o _cluster_ é formado por 3 máquinas que estão distribuídas entre 3 zonas de disponibilidade distintas, pode-se dizer que esse é um comportamento razoável.
+
+Na segunda faixa de gráficos, é possível analisar a latência do _backend_ mais o _Kong_. Percebe-se um comportamento muito similar à terceira faixa, onde o tempo vai baixando, ao invés de subir, o que mostra que não estão havendo problemas de _performance_ e o _backend_ está reagindo bem ao _autoscaling_.
+
+De maneira geral, os números do _Kong_ e do _backend_ parecem satisfatórios.
+
+O _K6_, no final, exibe um resumo dos testes:
+
+```
+✓ is status 200
+
+     █ setup
+
+     checks.........................: 100.00% ✓ 134736     ✗ 0
+     data_received..................: 66 MB   211 kB/s
+     data_sent......................: 194 MB  626 kB/s
+     http_req_blocked...............: avg=7.13µs   min=1.08µs  med=2.02µs   max=188.58ms p(90)=3.9µs    p(95)=6.86µs
+     http_req_connecting............: avg=1.78µs   min=0s      med=0s       max=32.59ms  p(90)=0s       p(95)=0s
+     http_req_duration..............: avg=244ms    min=1.56ms  med=220.75ms max=1.47s    p(90)=425.56ms p(95)=560.02ms
+       { expected_response:true }...: avg=244ms    min=1.56ms  med=220.75ms max=1.47s    p(90)=425.56ms p(95)=560.02ms
+     http_req_failed................: 0.00%   ✓ 0          ✗ 134737
+     http_req_receiving.............: avg=86.62µs  min=21.46µs med=43.9µs   max=374.86ms p(90)=81.22µs  p(95)=101.41µs
+     http_req_sending...............: avg=40.49µs  min=7.42µs  med=13.11µs  max=161.02ms p(90)=27.13µs  p(95)=33.33µs
+     http_req_tls_handshaking.......: avg=0s       min=0s      med=0s       max=0s       p(90)=0s       p(95)=0s
+     http_req_waiting...............: avg=243.87ms min=1.51ms  med=220.65ms max=1.47s    p(90)=425.24ms p(95)=559.9ms
+     http_reqs......................: 134737  433.957953/s
+     iteration_duration.............: avg=244.18ms min=1.7ms   med=220.92ms max=1.47s    p(90)=425.74ms p(95)=560.25ms
+     iterations.....................: 134736  433.954732/s
+     vus............................: 199     min=0        max=199
+     vus_max........................: 200     min=200      max=200
+```
+
+Aqui, podemos ver alguns números interessantes. Por exemplo, a média de duração das iterações ficou em 244.18ms e o percentil 95 ficou em 560.25ms, ou seja, não variou muito. Isso é um bom sinal, porque mostra que o _backend_ reagiu bem para escalar.
+
+Com isso, chegamos a uma validação bastante razoável. A partir das métricas providas pelo _Kong_ e usando o _K6_ e o _Testkube_, é possível rodar um teste de carga bem razoável para conseguirmos analisar a _performance_ do _Kong_.
+
+Chegamos à conclusão que o _Kong_ vem performando de maneira razoável, lembrando que chegamos a um pico de quase 1.000 requisições por segundo e levando-se em consideração também toda a infraestrutura que está sendo utilizada na nuvem para o _Kong_ rodar.
+
+A avaliação final é de que o _Kong_ performa de maneira aceitável em relação à aplicação, ou seja, o _API Gateway_ não adicionou latências consideráveis na requisição, inclusive com autenticação.
 
 ### Destruindo a infraestrutura
 
