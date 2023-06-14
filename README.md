@@ -30,7 +30,7 @@ Dinâmica do sistema:
 
 #### Operate What You Build
 
-Nesta sexta versão, trabalhamos com tecnologias relacionadas aos processos de monitoramento aplicados a um _API Gateway_, operando com a _API_ da aplicação _Driver_.
+Nesta sexta versão, trabalhamos com tecnologias relacionadas aos processos de monitoramento aplicados ao _API Gateway_ e à _API_ de _backend_ da aplicação _Driver_.
 
 - Backend
 
@@ -42,18 +42,21 @@ Nesta sexta versão, trabalhamos com tecnologias relacionadas aos processos de m
 
 - Monitoramento
 
-  - Prometheus
-  - EFK
-    - Elasticsearch
-    - Fluentd
-    - Kibana
+  - Métricas
+
+    - Prometheus
+
+  - Logs
+    - EFK
+      - Elasticsearch
+      - Fluentd
+      - Kibana
 
 - GitOps Tool
 
   - ArgoCD
 
 - Deploy
-
   - Kubernetes GKE
 
 ### O que faremos
