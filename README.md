@@ -1514,6 +1514,8 @@ A avaliação final é de que o _Kong_ performa de maneira aceitável em relaç�
 
 Neste momento, vamos instalar algumas ferramentas e comportamentos no _Kong_ para nos aproximarmos ainda mais de um ambiente de Produção. Nesse sentido, vamos adicionar mais um ponto que vai nos amparar em entender o comportamento da aplicação: a coleta de _logs_. Sendo assim, além do monitoramento pelo _Prometheus_, vamos adicionar uma _stack_ de coleta de _logs_.
 
+Os _logs_ vão nos auxiliar, principalmente, na análise de um problema em ambiente de Produção.
+
 Então, a primeira coisa que iremos fazer é deletar a aplicação no _ArgoCD_.
 
 ![Deletando aplicação do ArgoCD](./images/deletando-aplicacao-argocd.png)
@@ -2226,7 +2228,637 @@ plugin: tcp-log
 
 Além disso, podemos perceber que a configuração do _log_ precisa ser feita no _Service_ também, adicionado à anotação _konghq.com/plugins_ a configuração da coleta de _logs_, ou seja, _driver-logs_.
 
-Isso deve ser suficiente para fazer funcionar a coleta de _logs_ em nossa aplicação. Agora, é necessário subir essas alterações para o _GitHub_, de forma que o _ArgoCD_ sincronize com o _cluster Kubernetes_.
+Isso deve ser suficiente para fazer funcionar a coleta de _logs_ em nossa aplicação. Agora, é necessário subir essas alterações para o _GitHub_, de forma que o _ArgoCD_ sincronize com o _cluster Kubernetes_:
+
+![Kong plugin de driver-logs criado no cluster](./images/driver-logs-kong-plugin-criado-cluster.png)
+
+Conforme podemos ver na _interface_ do _ArgoCD_, o _KongPlugin_ _driver-logs_ foi aplicado no _cluster_ com sucesso. Isso quer dizer que a _API_ de _driver_ foi configurada para a coleta de _logs_.
+
+### Analisando o Kong
+
+Para ver isso funcionando, primeiramente, foi criado uma _collection_ no _Postman_ que faz _requests_ no serviço da _API_ _driver_. Assim, ela vai ficar rodando para uma quantidade de iterações que, neste caso, é de 10.000.000:
+
+```
+$ mkdir infra/collection
+$ touch infra/collection/driver.postman_collection.json
+$ vim infra/collection/driver.postman_collection.json
+
+{
+	"info": {
+		"_postman_id": "cd5a5bba-d620-4098-b669-81cff292b569",
+		"name": "DRIVER FULL CYCLE",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "3815935"
+	},
+	"item": [
+		{
+			"name": "GET ALL DRIVERS",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI0Y3ZRakRJcTVhZGRLRGpsT1B2U282MXZvSVE4ajRlVUpsU01fQmMxd3pZIn0.eyJleHAiOjE2ODY3MTA2NDYsImlhdCI6MTY4NjcwNzA0NiwianRpIjoiMTNhMmQ4ZTAtMjEzZS00ZDA5LWJiYWMtZTFkMzQ0MGEwN2JlIiwiaXNzIjoiaHR0cDovL2tleWNsb2FrLmlhbS9yZWFsbXMvZHJpdmVyIiwiYXVkIjoiYWNjb3VudCIsInN1YiI6IjVlYTViN2ZkLTkyNmItNDVlMi1iN2VmLThlYTIyZDNmNGRlMiIsInR5cCI6IkJlYXJlciIsImF6cCI6ImtvbmciLCJzZXNzaW9uX3N0YXRlIjoiMzY4M2Y2ODMtYmViMC00OGJjLWJlMWUtZjEzNTRhODAwNTcyIiwiYWNyIjoiMSIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJvZmZsaW5lX2FjY2VzcyIsImRlZmF1bHQtcm9sZXMtZHJpdmVyIiwidW1hX2F1dGhvcml6YXRpb24iXX0sInJlc291cmNlX2FjY2VzcyI6eyJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJzY29wZSI6Im9wZW5pZCBlbWFpbCBwcm9maWxlIiwic2lkIjoiMzY4M2Y2ODMtYmViMC00OGJjLWJlMWUtZjEzNTRhODAwNTcyIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJtYXJpYSIsImdpdmVuX25hbWUiOiIiLCJmYW1pbHlfbmFtZSI6IiJ9.XAzDBjF7V5ChIq5t37m2wu7IYYmvF1zqnAt8a8R_YlbtWeHYPE1xKkUPpz8GUg2J8gC7lsQtje9kXhCa7H4eqMUPdO68bi_mIDNRlpsRt5y-BFBOkNYnGpRgkn98J1ApEIIgiZ56hUuz01vpQ9OKXNzTxMTD-XyjOyt0SyrJhDvDLvJw2PoTf_KIDJomj9Y0-TnbD4wPRGuJsHk82tohTTCz7nQo1_JxatdpiN5Jby8Y8gVR5OkCzJGbP-sAub7S5oiajZYySWzQpxW3kkT1ETpfrRQXMHDIz8QTzyZCdp993I60xBPyyYB1c78_3VOpJ_rGgbfl8Ww2T28tPZyksg",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{driver-url}}/drivers",
+					"host": [
+						"{{driver-url}}"
+					],
+					"path": [
+						"drivers"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "driver-url",
+			"value": "35.223.2.233/api/driver"
+		}
+	]
+}
+```
+
+Então, o que faremos para simular uma chamada em um ambiente um pouco mais real? Nós criamos um _runner_ no _Postman_ de 10.000.000 de iterações para rodar um grupo de requisições e isso vai simular um tráfego na nossa aplicação:
+
+![Runner do Postman](./images/runner-postman-10-milhoes-iteracoes.png)
+
+E, agora, vamos rodar o _runner_ para a _API_ _driver_:
+
+![Runner do Postman para a API driver](./images/runner-postman-rodando-api-driver.png)
+
+Antes de acessarmos o _Kibana_, vamos acessar o _Grafana_ para monitorar o comportamento da aplicação. Podemos ver que a aplicação está tendo até 6 requisições por segundo:
+
+![Grafana - número de requests](./images/grafana-numero-requests.png)
+
+O tempo do _upstream_ responder está baixo, perto de 23.9ms, se considerarmos o percentil 95:
+
+![Grafana tempo do upstream](./images/grafana-tempo-upstream.png)
+
+O _Kong_ está respondendo rápido, se considerarmos o percentil 95, cerca de 6.5ms:
+
+![Grafana desempenho do Kong](./images/grafana-desempenho-kong.png)
+
+Nós podemos ver que temos bastante chamadas com _status code_ 200. Idealmente, não poderiam haver chamadas 4xx ou 5xx:
+
+![Grafana chamadas com status code 200](./images/grafana-chamadas-status-code-200.png)
+
+Na prática, o ambiente está bastante adequado: temos um bom número de _requests_ por segundo, respondendo bem, pois, até o momento, só estamos recebendo _status code_ 2xx. Isso quer dizer que o ambiente está saudável.
+
+Então, neste momento, percebemos que já temos um nível de monitoramento bastante razoável em termos de requisições que conseguimos avaliar, em termos de conseguirmos entender o nosso pequeno ecossistema.
+
+Neste momento, vamos fazer um _port-forward_ para fazer a configuração do _Kibana_:
+
+```
+$ kubectl port-forward svc/kibana-kibana 5601 -n logs
+```
+
+Vamos acessar o _Kibana_ pela porta 5601:
+
+![Tela inicial do Kibana](./images/tela-inicial-kibana.png)
+
+Agora, nós vamos no menu do _Kibana_, em _Stack Management / Index Patterns_. O _Kibana_ identificou que temos dados no _Elasticsearch_,
+
+![Kibana identificou dados no Elasticsearch](./images/kibana-identificou-dados-elasticsearch.png)
+
+Vamos clicar em _Create index pattern_. Neste caso, vamos optar por não trabalhar com data e hora e vamos criar o nosso _index pattern_.
+
+![Kibana criando index pattern](./images/kibana-criando-index-pattern.png)
+
+Então, vamos no menu esquerdo, em _Discover_. Podemos ver que já temos bastante dados já - 10.049 documentos:
+
+![Kibana Discover - carregando bastante dados](./images/kibana-discover-carregando-bastante-dados.png)
+
+Vamos analisar um documento do _Kong_.
+
+![Kibana - analisando um documento](./images/kibana-analisando-um-documento.png)
+
+```
+{
+  "_index": "fluentd",
+  "_type": "_doc",
+  "_id": "M3SXt4gBVwgUsshssZ5F",
+  "_version": 1,
+  "_score": 1,
+  "_ignored": [
+    "request.headers.x-userinfo.keyword"
+  ],
+  "_source": {
+    "request": {
+      "method": "GET",
+      "url": "http://35.223.2.233:80/api/driver/drivers",
+      "uri": "/api/driver/drivers",
+      "querystring": {},
+      "headers": {
+        "x-userinfo": "eyJhenAiOiJrb25nIiwic2Vzc2lvbl9zdGF0ZSI6IjM2ODNmNjgzLWJlYjAtNDhiYy1iZTFlLWYxMzU0YTgwMDU3MiIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJvZmZsaW5lX2FjY2VzcyIsImRlZmF1bHQtcm9sZXMtZHJpdmVyIiwidW1hX2F1dGhvcml6YXRpb24iXX0sImp0aSI6IjEzYTJkOGUwLTIxM2UtNGQwOS1iYmFjLWUxZDM0NDBhMDdiZSIsInN1YiI6IjVlYTViN2ZkLTkyNmItNDVlMi1iN2VmLThlYTIyZDNmNGRlMiIsInJlc291cmNlX2FjY2VzcyI6eyJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJhdWQiOiJhY2NvdW50IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJtYXJpYSIsImlhdCI6MTY4NjcwNzA0NiwidXNlcm5hbWUiOiJtYXJpYSIsInR5cCI6IkJlYXJlciIsImV4cCI6MTY4NjcxMDY0NiwiaWQiOiI1ZWE1YjdmZC05MjZiLTQ1ZTItYjdlZi04ZWEyMmQzZjRkZTIiLCJzaWQiOiIzNjgzZjY4My1iZWIwLTQ4YmMtYmUxZS1mMTM1NGE4MDA1NzIiLCJnaXZlbl9uYW1lIjoiIiwiZmFtaWx5X25hbWUiOiIiLCJhY3IiOiIxIiwic2NvcGUiOiJvcGVuaWQgZW1haWwgcHJvZmlsZSIsImlzcyI6Imh0dHA6Ly9rZXljbG9hay5pYW0vcmVhbG1zL2RyaXZlciJ9",
+        "authorization": "REDACTED",
+        "user-agent": "PostmanRuntime/7.32.2",
+        "accept": "*/*",
+        "connection": "keep-alive",
+        "accept-encoding": "gzip, deflate, br",
+        "postman-token": "21061ac7-636b-490f-9a2b-8b5cdeb7ac99",
+        "x-credential-identifier": "maria",
+        "host": "35.223.2.233"
+      },
+      "size": 1524
+    },
+    "started_at": 1686707288667,
+    "route": {
+      "path_handling": "v0",
+      "request_buffering": true,
+      "id": "e3b6f758-597e-533f-b035-3375afb2cc88",
+      "service": {
+        "id": "9e12cf56-2e21-57b5-9bf9-6dfd4c9d0a3f"
+      },
+      "regex_priority": 0,
+      "preserve_host": false,
+      "tags": [
+        "k8s-name:driver-api",
+        "k8s-namespace:driver",
+        "k8s-kind:Ingress",
+        "k8s-uid:7d6bc01b-1927-4fb0-ad3e-eb4a6c6fec2e",
+        "k8s-group:networking.k8s.io",
+        "k8s-version:v1"
+      ],
+      "protocols": [
+        "http",
+        "https"
+      ],
+      "created_at": 1686704281,
+      "updated_at": 1686704281,
+      "ws_id": "0dc6f45b-8f8d-40d2-a504-473544ee190b",
+      "name": "driver.driver-api.driver..80",
+      "response_buffering": true,
+      "https_redirect_status_code": 426,
+      "strip_path": true,
+      "paths": [
+        "/api/driver/",
+        "~/api/driver$"
+      ]
+    },
+    "response": {
+      "headers": {
+        "content-length": "142",
+        "ratelimit-limit": "10000",
+        "ratelimit-remaining": "9999",
+        "x-kong-proxy-latency": "335",
+        "x-kong-upstream-latency": "511",
+        "date": "Wed, 14 Jun 2023 01:48:09 GMT",
+        "connection": "close",
+        "via": "kong/3.0.2",
+        "content-type": "application/json",
+        "x-ratelimit-remaining-second": "9999",
+        "ratelimit-reset": "1",
+        "x-ratelimit-limit-second": "10000"
+      },
+      "status": 200,
+      "size": 489
+    },
+    "upstream_uri": "/drivers",
+    "service": {
+      "enabled": true,
+      "write_timeout": 60000,
+      "id": "9e12cf56-2e21-57b5-9bf9-6dfd4c9d0a3f",
+      "connect_timeout": 60000,
+      "read_timeout": 60000,
+      "tags": [
+        "k8s-name:driver",
+        "k8s-namespace:driver",
+        "k8s-kind:Service",
+        "k8s-uid:e509bb57-7e85-4610-b27d-f5d91c0b0420",
+        "k8s-version:v1"
+      ],
+      "path": "/",
+      "host": "driver.driver.80.svc",
+      "created_at": 1686704281,
+      "updated_at": 1686704281,
+      "ws_id": "0dc6f45b-8f8d-40d2-a504-473544ee190b",
+      "retries": 5,
+      "protocol": "http",
+      "port": 80,
+      "name": "driver.driver-api.driver.80"
+    },
+    "client_ip": "10.4.3.1",
+    "latencies": {
+      "request": 847,
+      "kong": 336,
+      "proxy": 511
+    },
+    "authenticated_entity": {
+      "id": "5ea5b7fd-926b-45e2-b7ef-8ea22d3f4de2"
+    },
+    "tries": [
+      {
+        "balancer_latency": 3,
+        "port": 80,
+        "balancer_start": 1686707288999,
+        "ip": "10.7.245.183"
+      }
+    ]
+  },
+  "fields": {
+    "response.headers.via": [
+      "kong/3.0.2"
+    ],
+    "service.connect_timeout": [
+      60000
+    ],
+    "upstream_uri": [
+      "/drivers"
+    ],
+    "service.ws_id": [
+      "0dc6f45b-8f8d-40d2-a504-473544ee190b"
+    ],
+    "route.created_at": [
+      1686704281
+    ],
+    "service.name.keyword": [
+      "driver.driver-api.driver.80"
+    ],
+    "service.write_timeout": [
+      60000
+    ],
+    "route.paths.keyword": [
+      "/api/driver/",
+      "~/api/driver$"
+    ],
+    "service.enabled": [
+      true
+    ],
+    "response.headers.content-length.keyword": [
+      "142"
+    ],
+    "route.id.keyword": [
+      "e3b6f758-597e-533f-b035-3375afb2cc88"
+    ],
+    "service.host.keyword": [
+      "driver.driver.80.svc"
+    ],
+    "tries.balancer_latency": [
+      3
+    ],
+    "request.url.keyword": [
+      "http://35.223.2.233:80/api/driver/drivers"
+    ],
+    "response.headers.x-kong-proxy-latency.keyword": [
+      "335"
+    ],
+    "response.headers.date": [
+      "Wed, 14 Jun 2023 01:48:09 GMT"
+    ],
+    "route.tags": [
+      "k8s-name:driver-api",
+      "k8s-namespace:driver",
+      "k8s-kind:Ingress",
+      "k8s-uid:7d6bc01b-1927-4fb0-ad3e-eb4a6c6fec2e",
+      "k8s-group:networking.k8s.io",
+      "k8s-version:v1"
+    ],
+    "response.headers.connection": [
+      "close"
+    ],
+    "request.headers.user-agent": [
+      "PostmanRuntime/7.32.2"
+    ],
+    "request.headers.authorization": [
+      "REDACTED"
+    ],
+    "response.headers.ratelimit-reset": [
+      "1"
+    ],
+    "request.headers.postman-token.keyword": [
+      "21061ac7-636b-490f-9a2b-8b5cdeb7ac99"
+    ],
+    "started_at": [
+      1686707288667
+    ],
+    "response.headers.x-kong-upstream-latency.keyword": [
+      "511"
+    ],
+    "response.headers.content-type.keyword": [
+      "application/json"
+    ],
+    "route.path_handling": [
+      "v0"
+    ],
+    "response.headers.ratelimit-remaining.keyword": [
+      "9999"
+    ],
+    "response.headers.connection.keyword": [
+      "close"
+    ],
+    "client_ip.keyword": [
+      "10.4.3.1"
+    ],
+    "response.headers.ratelimit-remaining": [
+      "9999"
+    ],
+    "request.uri.keyword": [
+      "/api/driver/drivers"
+    ],
+    "request.headers.host.keyword": [
+      "35.223.2.233"
+    ],
+    "service.read_timeout": [
+      60000
+    ],
+    "tries.port": [
+      80
+    ],
+    "request.headers.authorization.keyword": [
+      "REDACTED"
+    ],
+    "service.retries": [
+      5
+    ],
+    "request.headers.connection": [
+      "keep-alive"
+    ],
+    "request.headers.connection.keyword": [
+      "keep-alive"
+    ],
+    "service.ws_id.keyword": [
+      "0dc6f45b-8f8d-40d2-a504-473544ee190b"
+    ],
+    "response.headers.x-kong-proxy-latency": [
+      "335"
+    ],
+    "request.headers.user-agent.keyword": [
+      "PostmanRuntime/7.32.2"
+    ],
+    "request.method": [
+      "GET"
+    ],
+    "response.headers.date.keyword": [
+      "Wed, 14 Jun 2023 01:48:09 GMT"
+    ],
+    "request.headers.x-credential-identifier.keyword": [
+      "maria"
+    ],
+    "route.ws_id": [
+      "0dc6f45b-8f8d-40d2-a504-473544ee190b"
+    ],
+    "service.protocol": [
+      "http"
+    ],
+    "service.tags": [
+      "k8s-name:driver",
+      "k8s-namespace:driver",
+      "k8s-kind:Service",
+      "k8s-uid:e509bb57-7e85-4610-b27d-f5d91c0b0420",
+      "k8s-version:v1"
+    ],
+    "service.protocol.keyword": [
+      "http"
+    ],
+    "response.status": [
+      200
+    ],
+    "upstream_uri.keyword": [
+      "/drivers"
+    ],
+    "response.headers.content-length": [
+      "142"
+    ],
+    "service.path": [
+      "/"
+    ],
+    "authenticated_entity.id": [
+      "5ea5b7fd-926b-45e2-b7ef-8ea22d3f4de2"
+    ],
+    "route.protocols": [
+      "http",
+      "https"
+    ],
+    "request.headers.accept.keyword": [
+      "*/*"
+    ],
+    "route.tags.keyword": [
+      "k8s-name:driver-api",
+      "k8s-namespace:driver",
+      "k8s-kind:Ingress",
+      "k8s-uid:7d6bc01b-1927-4fb0-ad3e-eb4a6c6fec2e",
+      "k8s-group:networking.k8s.io",
+      "k8s-version:v1"
+    ],
+    "request.method.keyword": [
+      "GET"
+    ],
+    "request.headers.accept": [
+      "*/*"
+    ],
+    "route.protocols.keyword": [
+      "http",
+      "https"
+    ],
+    "response.headers.x-kong-upstream-latency": [
+      "511"
+    ],
+    "response.headers.content-type": [
+      "application/json"
+    ],
+    "route.service.id": [
+      "9e12cf56-2e21-57b5-9bf9-6dfd4c9d0a3f"
+    ],
+    "route.https_redirect_status_code": [
+      426
+    ],
+    "response.headers.via.keyword": [
+      "kong/3.0.2"
+    ],
+    "route.updated_at": [
+      1686704281
+    ],
+    "latencies.request": [
+      847
+    ],
+    "request.headers.accept-encoding": [
+      "gzip, deflate, br"
+    ],
+    "client_ip": [
+      "10.4.3.1"
+    ],
+    "request.headers.accept-encoding.keyword": [
+      "gzip, deflate, br"
+    ],
+    "route.paths": [
+      "/api/driver/",
+      "~/api/driver$"
+    ],
+    "route.name": [
+      "driver.driver-api.driver..80"
+    ],
+    "request.headers.x-credential-identifier": [
+      "maria"
+    ],
+    "response.headers.ratelimit-limit": [
+      "10000"
+    ],
+    "response.size": [
+      489
+    ],
+    "route.id": [
+      "e3b6f758-597e-533f-b035-3375afb2cc88"
+    ],
+    "latencies.kong": [
+      336
+    ],
+    "response.headers.x-ratelimit-remaining-second": [
+      "9999"
+    ],
+    "response.headers.ratelimit-reset.keyword": [
+      "1"
+    ],
+    "route.request_buffering": [
+      true
+    ],
+    "tries.ip.keyword": [
+      "10.7.245.183"
+    ],
+    "route.preserve_host": [
+      false
+    ],
+    "route.path_handling.keyword": [
+      "v0"
+    ],
+    "service.id": [
+      "9e12cf56-2e21-57b5-9bf9-6dfd4c9d0a3f"
+    ],
+    "service.updated_at": [
+      1686704281
+    ],
+    "response.headers.x-ratelimit-limit-second.keyword": [
+      "10000"
+    ],
+    "request.headers.host": [
+      "35.223.2.233"
+    ],
+    "response.headers.x-ratelimit-limit-second": [
+      "10000"
+    ],
+    "service.id.keyword": [
+      "9e12cf56-2e21-57b5-9bf9-6dfd4c9d0a3f"
+    ],
+    "route.ws_id.keyword": [
+      "0dc6f45b-8f8d-40d2-a504-473544ee190b"
+    ],
+    "response.headers.ratelimit-limit.keyword": [
+      "10000"
+    ],
+    "service.created_at": [
+      1686704281
+    ],
+    "service.port": [
+      80
+    ],
+    "tries.balancer_start": [
+      1686707288999
+    ],
+    "route.service.id.keyword": [
+      "9e12cf56-2e21-57b5-9bf9-6dfd4c9d0a3f"
+    ],
+    "response.headers.x-ratelimit-remaining-second.keyword": [
+      "9999"
+    ],
+    "tries.ip": [
+      "10.7.245.183"
+    ],
+    "service.name": [
+      "driver.driver-api.driver.80"
+    ],
+    "route.name.keyword": [
+      "driver.driver-api.driver..80"
+    ],
+    "request.headers.postman-token": [
+      "21061ac7-636b-490f-9a2b-8b5cdeb7ac99"
+    ],
+    "service.tags.keyword": [
+      "k8s-name:driver",
+      "k8s-namespace:driver",
+      "k8s-kind:Service",
+      "k8s-uid:e509bb57-7e85-4610-b27d-f5d91c0b0420",
+      "k8s-version:v1"
+    ],
+    "route.response_buffering": [
+      true
+    ],
+    "request.url": [
+      "http://35.223.2.233:80/api/driver/drivers"
+    ],
+    "request.headers.x-userinfo": [
+      "eyJhenAiOiJrb25nIiwic2Vzc2lvbl9zdGF0ZSI6IjM2ODNmNjgzLWJlYjAtNDhiYy1iZTFlLWYxMzU0YTgwMDU3MiIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJvZmZsaW5lX2FjY2VzcyIsImRlZmF1bHQtcm9sZXMtZHJpdmVyIiwidW1hX2F1dGhvcml6YXRpb24iXX0sImp0aSI6IjEzYTJkOGUwLTIxM2UtNGQwOS1iYmFjLWUxZDM0NDBhMDdiZSIsInN1YiI6IjVlYTViN2ZkLTkyNmItNDVlMi1iN2VmLThlYTIyZDNmNGRlMiIsInJlc291cmNlX2FjY2VzcyI6eyJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJhdWQiOiJhY2NvdW50IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJtYXJpYSIsImlhdCI6MTY4NjcwNzA0NiwidXNlcm5hbWUiOiJtYXJpYSIsInR5cCI6IkJlYXJlciIsImV4cCI6MTY4NjcxMDY0NiwiaWQiOiI1ZWE1YjdmZC05MjZiLTQ1ZTItYjdlZi04ZWEyMmQzZjRkZTIiLCJzaWQiOiIzNjgzZjY4My1iZWIwLTQ4YmMtYmUxZS1mMTM1NGE4MDA1NzIiLCJnaXZlbl9uYW1lIjoiIiwiZmFtaWx5X25hbWUiOiIiLCJhY3IiOiIxIiwic2NvcGUiOiJvcGVuaWQgZW1haWwgcHJvZmlsZSIsImlzcyI6Imh0dHA6Ly9rZXljbG9hay5pYW0vcmVhbG1zL2RyaXZlciJ9"
+    ],
+    "authenticated_entity.id.keyword": [
+      "5ea5b7fd-926b-45e2-b7ef-8ea22d3f4de2"
+    ],
+    "service.path.keyword": [
+      "/"
+    ],
+    "latencies.proxy": [
+      511
+    ],
+    "route.regex_priority": [
+      0
+    ],
+    "route.strip_path": [
+      true
+    ],
+    "request.uri": [
+      "/api/driver/drivers"
+    ],
+    "request.size": [
+      1524
+    ],
+    "service.host": [
+      "driver.driver.80.svc"
+    ]
+  },
+  "ignored_field_values": {
+    "request.headers.x-userinfo.keyword": [
+      "eyJhenAiOiJrb25nIiwic2Vzc2lvbl9zdGF0ZSI6IjM2ODNmNjgzLWJlYjAtNDhiYy1iZTFlLWYxMzU0YTgwMDU3MiIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJvZmZsaW5lX2FjY2VzcyIsImRlZmF1bHQtcm9sZXMtZHJpdmVyIiwidW1hX2F1dGhvcml6YXRpb24iXX0sImp0aSI6IjEzYTJkOGUwLTIxM2UtNGQwOS1iYmFjLWUxZDM0NDBhMDdiZSIsInN1YiI6IjVlYTViN2ZkLTkyNmItNDVlMi1iN2VmLThlYTIyZDNmNGRlMiIsInJlc291cmNlX2FjY2VzcyI6eyJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJhdWQiOiJhY2NvdW50IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJtYXJpYSIsImlhdCI6MTY4NjcwNzA0NiwidXNlcm5hbWUiOiJtYXJpYSIsInR5cCI6IkJlYXJlciIsImV4cCI6MTY4NjcxMDY0NiwiaWQiOiI1ZWE1YjdmZC05MjZiLTQ1ZTItYjdlZi04ZWEyMmQzZjRkZTIiLCJzaWQiOiIzNjgzZjY4My1iZWIwLTQ4YmMtYmUxZS1mMTM1NGE4MDA1NzIiLCJnaXZlbl9uYW1lIjoiIiwiZmFtaWx5X25hbWUiOiIiLCJhY3IiOiIxIiwic2NvcGUiOiJvcGVuaWQgZW1haWwgcHJvZmlsZSIsImlzcyI6Imh0dHA6Ly9rZXljbG9hay5pYW0vcmVhbG1zL2RyaXZlciJ9"
+    ]
+  }
+}
+```
+
+Além de ter as informações do _Prometheus_, nós temos, a partir do _Kibana_, outras que podem ser interessantes. Se, por exemplo, alguém solicitar para ver os _logs_ a partir de um _request.headers.postman-token_ em específico: - Estou com problema nesse _postman-token_:
+
+Aí, pode-se fazer uma consulta pelo esquema de busca do _Kibana_, dessa forma:
+
+```
+request.headers.postman-token: 21061ac7-636b-490f-9a2b-8b5cdeb7ac99
+```
+
+E, aí, são retornados apenas 3 documentos, ou seja, o escopo de pesquisa é reduzido para apenas 3 documentos:
+
+![Kibana - retornou três documentos](./images/kibana-retornou-tres-documentos.png)
+
+Então, se alguém falar que teve problema em determinada requisição, consegue-se buscar especificamente por aquela requisição. E é importante, porque a gente consegue ver que não tem nenhum problema - retornou 200 (_status code 200_):
+
+![Kibana - retornou 200](./images/kibana-retornou-200.png)
+
+Em geral, esse problema vem para resolvermos com o _status code_ de 4xx ou 5xx.
+
+Idealmente, um _log_ de _request-id_ deveria ser colocado dentro da aplicação para termos o controle total, desde a entrada pelo _API Gateway_, passando pela _API_ do serviço de _backend_ até chegar no _data store_ do _Elasticsearch_ e nós conseguirmos realizar buscas específicas, por exemplo, poderia, se algum usuário reportasse o erro, eu conseguiria ver que, no _Kong_, não deu problema.
+
+Então, deve ter acontecido em outra parte da infraestrutura, porque a resposta foi 200.
+
+É importante que se repassem essas requisições, esse _request-id_ específico para a aplicação.
+
+Então, além de ter as métricas, que é uma coisa mais sumarizada, eu tenho a unicidade de um _request-id_, que é importante no momento de se fazer _troubleshooting_ específico daquele usuário.
+
+Sendo assim, a partir da visualização de um documento de _log_ no _Kibana_, podemos ver mais alguma coisa que complementa as métricas. Então, eu já tenho uma parte do ambiente que eu já considero bastante eficaz para se ter em Produção. Nós já temos métricas, para vermos algo mais sumarizado, e nós já temos o _log_ unitário utilizando o _request-id_ e repassando esse _request-id_ para a aplicação.
+
+Com isso, já conseguimos ter uma certa capacidade de fazer _troubleshooting_ dentro do _Kong_. Conseguimos utilizar desde _Prometheus_ até _logs_, então, nós temos métricas sumarizadas e _log_ e unicidade. Então, a gente já tem um ambiente um pouco mais próximo de um ambiente de Produção.
 
 ### Destruindo a infraestrutura
 
