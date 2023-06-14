@@ -30,7 +30,7 @@ Dinâmica do sistema:
 
 #### Operate What You Build
 
-Nesta sexta versão, trabalhamos com tecnologias relacionadas aos processos de monitoramento aplicados a um _API Gateway_, operando com a _API_ da aplicação _Driver_.
+Nesta sexta versão, trabalhamos com tecnologias relacionadas aos processos de monitoramento aplicados ao _API Gateway_ e à _API_ de _backend_ da aplicação _Driver_.
 
 - Backend
 
@@ -42,27 +42,30 @@ Nesta sexta versão, trabalhamos com tecnologias relacionadas aos processos de m
 
 - Monitoramento
 
-  - Prometheus
-  - EFK
-    - Elasticsearch
-    - Fluentd
-    - Kibana
+  - Métricas
+
+    - Prometheus
+
+  - Logs
+    - EFK
+      - Elasticsearch
+      - Fluentd
+      - Kibana
 
 - GitOps Tool
 
   - ArgoCD
 
 - Deploy
-
   - Kubernetes GKE
 
 ### O que faremos
 
 Nesta parte do projeto, estamos nos aproximando mais de um ambiente de Produção, aonde integramos uma ferramenta de _API Gateway_, o _Kong API Gateway_, ao _cluster Kubernetes_. O _Kong_, além de desempenhar o seu papel de ponto único de entrada (_entrypoint_) na infraestrutura, roteando as chamadas para os respectivos serviços no _cluster_, também permite adicionar _plugins_ que servirão para:
 
-    1. Aplicar autenticação às rotas, utilizando o padrão _OpenID Connect_;
-    2. Aplicar _rate limiting_ às rotas;
-    3. Aplicar coleta de métricas e logs para monitorarmos o comportamento da aplicação e do próprio _API Gateway_ em Produção.
+1. Aplicar autenticação às rotas, utilizando o padrão _OpenID Connect_;
+2. Aplicar _rate limiting_ às rotas;
+3. Aplicar coleta de métricas e logs para monitorarmos o comportamento da aplicação e do próprio _API Gateway_ em Produção.
 
 ### Iniciando a infraestrutura
 
@@ -92,7 +95,7 @@ O papel do _Ingress_ é muito parecido com o papel do _API Gateway_, no entanto,
 
 E como que o Kong funciona ao aplicar um manifesto com um objeto _Ingress_ no _Kubernetes_?
 
-Quando um processo de _Continuous Delivery (CD)_, por exemplo, envia um objeto _Ingress_ para o _API Server_ do _Kubernetes_, ele vai validar se o objeto está íntegro, etc. Se estiver, ele vai disparar um evento para um objeto _Controller_ implementado pelo _Kong_, que vai avisar, baseado em uma marcação no objeto, se está ou não interessado nesse objeto. Se o _Controller_ do _Kong_ tiver interesse no ojeto, ele vai configurar o _Kong API Gateway_ com aquela rota que foi configurada no _Ingress_.
+Quando um processo de _Continuous Delivery (CD)_, por exemplo, envia um objeto _Ingress_ para o _API Server_ do _Kubernetes_, ele vai validar se o objeto está íntegro, etc. Se estiver, ele vai disparar um evento para um objeto _Controller_ implementado pelo _Kong_, que vai avisar, baseado em uma marcação no objeto, se está ou não interessado nesse objeto. Se o _Controller_ do _Kong_ tiver interesse no objeto, ele vai configurar o _Kong API Gateway_ com aquela rota que foi configurada no _Ingress_.
 
 Ou seja, quando um objeto do tipo _Ingress_ sobe para o _Kubernetes_, se o _Kong_ entender que esse _Ingress_ é para ele, ele configura o _API Gateway_ com uma nova entrada.
 
@@ -503,10 +506,10 @@ kubectl apply -f infra/kong-k8s/misc/apis/kratelimit.yaml -n driver
 
 Neste caso, estamos configurando:
 
-    - Um _rate limiting_ de 10 mil _requests_ por segundo;
-    - Um atributo do _header_ (_limit_by: header_) para fazer o _rate limiting_;
-    - Uma política local (_policy: local_), ao invés de utilizar _Redis_, por exemplo, para fazer a contagem a partir de cada instância de _Kong_;
-    - O _header_name_ como _X-Credential-Identifier_. Ao utilizar-se o _plugin_ de _OpenID Connect_ da comunidade do _Kong_, esse _plugin_ cria o _header_, identificando o usuário do _token_. O _X-Credential-Identifier_, refere-se, portanto, a uma identificação de usuário. Neste caso, o _rate limiting_ está sendo feito por usuário, utilizando o valor do atributo _sub_ do _token_ _JWT_.
+- Um _rate limiting_ de 10 mil _requests_ por segundo;
+- Um atributo do _header_ (_limit_by: header_) para fazer o _rate limiting_;
+- Uma política local (_policy: local_), ao invés de utilizar _Redis_, por exemplo, para fazer a contagem a partir de cada instância de _Kong_;
+- O _header_name_ como _X-Credential-Identifier_. Ao utilizar-se o _plugin_ de _OpenID Connect_ da comunidade do _Kong_, esse _plugin_ cria o _header_, identificando o usuário do _token_. O _X-Credential-Identifier_, refere-se, portanto, a uma identificação de usuário. Neste caso, o _rate limiting_ está sendo feito por usuário, utilizando o valor do atributo _sub_ do _token_ _JWT_.
 
 O _Kong_ conta também com a idéia de _plugins_ globais, onde as configurações do _plugin_ não têm escopo de _namespace_, logo, elas valem para todo o _cluster_.
 
@@ -620,7 +623,7 @@ Isso mostra que a requisição está passando pelo _Kong_, que está roteando pa
 
 Até este momento, fizemos a configuração da rota, mas, ainda não adicionamos nenhuma configuração de _plugin_ nessa rota. Assim, a rota permanece sem autenticação, por exemplo.
 
-Então, o que faremos neste momento é adicionar adicionar um _plugin_ de autenticação, usando o padrão _OpenID Connect_. O _Kong_, por si só, não é uma implementação de _OpenID Connect_ e, entre as responsabilidade de um _API Gateway_, não está a de gerenciar o ciclo de vida dos usuários.
+Então, o que faremos neste momento é adicionar um _plugin_ de autenticação, usando o padrão _OpenID Connect_. O _Kong_, por si só, não é uma implementação de _OpenID Connect_ e, entre as responsabilidade de um _API Gateway_, não está a de gerenciar o ciclo de vida dos usuários.
 
 Assim, em geral, é utilizado uma ferramenta de _OpenID Connect_ para realizar o controle de usuários e aplicações. Em algumas empresas, essa ferramenta é chamada de _Identity Provider_. Dessa forma, nós já instalamos o _Keycloak_ como uma ferramenta adicional e, neste momento, iremos realizar algumas configurações na ferramenta.
 
@@ -691,7 +694,7 @@ $ kubectl apply -f  infra/kong-k8s/misc/apis/kopenid.yaml -n driver
 
 , podemos verificar que a chamada para o serviço a partir do _Kong_ ainda continua exposta. Por quê?
 
-Não devemos esquecer que é necessário, também, habilitar o _plugin_ na configuração do objeto _Ingress_:
+Não devemos esquecer de que é necessário, também, habilitar o _plugin_ na configuração do objeto _Ingress_:
 
 ```
 apiVersion: networking.k8s.io/v1
@@ -826,8 +829,8 @@ Busca-se, no final, com o _APIOps_, aumentar a qualidade da _API_, para que ela 
 
 Em suma, o _APIOps_ se preocupa em:
 
-    - Armazenar e versionar todo o estado da _API_ no _Git_;
-    - Utilizar modelos de _Pull Requests_ para que as ferramentas apliquem: 1. Validações de conformidade do contrato; 2. Testes de contrato;
+- Armazenar e versionar todo o estado da _API_ no _Git_;
+- Utilizar modelos de _Pull Requests_ para que as ferramentas apliquem: 1. Validações de conformidade do contrato; 2. Testes de contrato;
 
 Nesse sentido, na próxima sessão, veremos como aplicar testes de contrato a partir do uso de ferramentas integradas no processo de _CI_.
 
@@ -864,10 +867,10 @@ pm.test("[GET]::/drivers - Schema is valid", function() {
 
 Dessa forma, uma vez que seja feito um _GET_ em _/drivers_, espera-se que:
 
-    - No primeiro teste, o _status code_ do _response_ seja 200;
-    - No segundo teste, o _Content-Type_ no _header_ do _response_ seja _application/json_
-    - No terceiro teste, o corpo do _response_ contenha _JSON_;
-    - No quarto teste, seja validado o _schema_ do _JSON_, ou seja, o nome e o tipo das propriedades contidas no _JSON_ que compõe o corpo do _response_.
+- No primeiro teste, o _status code_ do _response_ seja 200;
+- No segundo teste, o _Content-Type_ no _header_ do _response_ seja _application/json_
+- No terceiro teste, o corpo do _response_ contenha _JSON_;
+- No quarto teste, seja validado o _schema_ do _JSON_, ou seja, o nome e o tipo das propriedades contidas no _JSON_ que compõe o corpo do _response_.
 
 A idéia principal, aqui, é ter uma _suite_ de testes que representa o que o cliente espera da _API_ em termos de validação de contrato e em termos de resposta, sem considerar, neste caso, regras de negócio - apenas o _design_ da _API_, ou seja, o conjunto de elementos que formam o _response_ de determinada requisição.
 
@@ -916,7 +919,7 @@ $ ./argo.sh
 
 Mas, neste caso, para criar uma nova aplicação no _ArgoCD_, não iremos utilizar a interface do _ArgoCD_, vamos utilizar uma configuração do _ArgoCD_ via _CRDs_ (_Custom Resource Definitions_). Desse modo, assim como o _Kong_, o _ArgoCD_ também conta com o seu próprio conjunto de _CRDs_. Mas por que por utilizar _CRDs_ ao invés de utilizar a _interface_ do _ArgoCD_?
 
-A partir do arquivo de configuração, nós temos uma infraestrutura como código, porque ele representa o estado desejado do _cluster_. E, sempre que trabalhamos com _IaC_, procuramos deixar a definição da nossa infraestrutura em arquivos para que alguma ferramenta possa aplicá-los. Já se fosse utilizada a _interface_ do _ArgoCD_ e as configurações da aplicação se perdessem por algum motivo, como perda da base de dados, por exemplo, não teria como reaplicar essas configurações.
+A partir do arquivo de configuração, nós temos uma infraestrutura como código, porque ele representa o estado desejado do _cluster_. E, sempre que trabalhamos com _IaC_, procuramos deixar a definição da nossa infraestrutura em arquivos para que alguma ferramenta possa aplicá-los. Já, se fosse utilizada a _interface_ do _ArgoCD_ e as configurações da aplicação se perdessem por algum motivo, como perda da base de dados, por exemplo, não teria como reaplicar essas configurações.
 
 ```
 $ mkdir infra/argo-apps
@@ -1014,11 +1017,11 @@ Lembrando que a configuração do _ArgoCD_ escuta _CRDs_ dentro do _namespace_ _
 
 O nosso objetivo, agora, é iniciar com _Load Tests_, com foco na ferramenta do _Kong API Gateway_.
 
-Um _API Gateway_ depende de alguns componentes, principalmente o ecossistema de aplicações. Então, é necessário entender a relação de _performance_ entre o _API Gateway_ e as chamadas dos serviços. É necessário entender, por exemplo, se é a aplicação que está apresentando problemas ou se é o _API Gateway_.
+Um _API Gateway_ depende de alguns componentes, principalmente do ecossistema de aplicações. Então, é necessário entender a relação de _performance_ entre o _API Gateway_ e as chamadas dos serviços. É necessário entender, por exemplo, se é a aplicação que está apresentando problemas ou se é o _API Gateway_.
 
 Dessa forma, vamos aplicar uma carga para verificar como se dará o comportamento da aplicação e do próprio _API Gateway_.
 
-Deve-se salientar que, neste caso, serão aplicados _load tests_, não serão aplicados _stress tests_, com o objetivo de derrubar a aplicação. O objetivo, aqui, é analisar como o nosso ecossistema conseguirá ficar estável ou não, variando a carga de requisições, ou seja, como a aplicação se comporta com uma carga um pouco mais alta do que a convencional.
+Lembrando que, neste caso, serão aplicados _load tests_: não serão aplicados _stress tests_, com o objetivo de derrubar a aplicação. O objetivo, aqui, é analisar como o nosso ecossistema conseguirá ficar estável ou não, variando a carga de requisições, ou seja, como a aplicação se comporta com uma carga um pouco mais alta do que a convencional.
 
 Para isso, iremos utilizar duas ferramentas, que vão nos auxiliar no processo de escrita e execução dos testes.
 
@@ -1159,13 +1162,13 @@ Dessa forma, a ferramenta já está provisionada para receber alguma carga.
 
 #### metrics-server
 
-Um objeto _Deployment_ tem, por padrão, definido o número de réplicas como apenas um. Só que esse não é o comportamento esperado quando se faz teste de carga: não se espera que o número de instâncias fique em apenas um.
+Um objeto _Deployment_ tem, por padrão, definido o número de réplicas como apenas um. Só que esse não é o comportamento esperado quando se fazem testes de carga, porque não se espera que o número de instâncias fique em apenas um.
 
 O comportamento desejado é que o _Kubernetes_, com base em algumas métricas do _Deployment_, seja capaz de instanciar novas réplicas da aplicação, fazendo com que ela fique com mais instâncias e consiga receber maior carga. Por exemplo: ao bater uma métrica de 70% de processamento, o _Kubernetes_ já começa a subir novas instâncias, de forma a escalar horizontalmente. Esse processo também é conhecido como _autoscaling_ e é uma das funcionalidades mais conhecidas do _Kubernetes_.
 
 O nosso objetivo aqui, então, é, primeiramente, preparar o _cluster_ para ele que ele consiga executar o processo de _autoscaling_.
 
-A primeira coisa que devemos fazer é verificar se o _metrics-server_ está instalado no _cluster_. Normalmente, o _cloud provider_ já habilita esse recurso por padrão.
+A primeira coisa que devemos fazer é verificar se o _metrics-server_ está instalado no _cluster_. Normalmente, o _cloud provider_ já possui esse recurso habilitado por padrão:
 
 ```
 $ kubectl get po -n kube-system
@@ -1199,7 +1202,7 @@ O _metrics-server_, basicamente, é um recurso do _Kubernetes_ que organiza as m
 
 #### HPA
 
-O _HPA_ é um objeto do _Kubernetes_ aonde se define o seguinte comportamento: escalar o _POD_ assim que ele chegar em uma determinada condição. A condição padrão que pode-se utilizar é memória e _CPU_:
+O _HPA_ é um objeto do _Kubernetes_ aonde se define o seguinte comportamento: escalar o _POD_ assim que ele chegar em uma determinada condição. A condição padrão comumente utilizada é de memória e _CPU_:
 
 ```
  $ mkdir infra/kong-k8s/misc/apps/hpa
@@ -1221,11 +1224,11 @@ spec:
 
 ```
 
-Não deve-se esquecer de definir o _Deployment_ para o qual esse _HPA_ está associado.
+Um detalhe importante é que não se deve esquecer de definir o _Deployment_ para o qual esse _HPA_ está associado.
 
 Neste caso, definimos um número máximo de 20 réplicas. O que isso significa? Significa que, se chegar a atingir o limite de 20 instâncias, com base na carga de processamento de _CPU_, o _Kubernetes_ não vai subir mais instâncias da aplicação.
 
-A propriedade _targetCPUUtilizationPercentage_ indica que, se o _POD_ atingir 70% de utilização de _CPU_, o _Kubernetes_ começa a subir novas instâncias, baseando-se na definição do objeto de _Deployment_, até atingir o limite de 20 instâncias.
+A propriedade _targetCPUUtilizationPercentage_ indica que, se o _POD_ atingir 5% de utilização de _CPU_, o _Kubernetes_ começa a subir novas instâncias, baseando-se na definição do objeto de _Deployment_, até atingir o limite de 20 instâncias.
 
 ```
   $ kubectl apply -f infra/kong-k8s/misc/apps/hpa/driver.yaml -n driver
@@ -1244,7 +1247,7 @@ A partir dessa consulta, já sabemos que o _metrics-server_ está funcionando, p
 
 #### Prometheus
 
-Neste momento, é necessário configurar o _Prometheus_ para fazer o _scraping_ de métricas do _Kong_ de forma a coletar métricas de todos os _namespaces_, usando _ServiceMonitor_.
+Neste momento, é necessário configurar o _Prometheus_ para fazer a coleta (_scraping_) de métricas do _Kong_ de forma a coletar métricas de todos os _namespaces_, usando _ServiceMonitor_.
 
 > O Prometheus Operator inclui um _CRD_ que permite a definição do _ServiceMonitor_. O ServiceMonitor é usado para definir uma aplicação da qual se deseja extrair métricas a partir do _cluster_ do _Kubernetes_; o _controller_ aciona os ServiceMonitors que definimos e cria automaticamente a configuração necessária do Prometheus. Fonte: <https://observability.thomasriley.co.uk/prometheus/configuring-prometheus/using-service-monitors/>
 
@@ -1303,7 +1306,11 @@ spec:
 
 Apenas observando que foi configurado um _rate-limit_ bastante alto de 10.000 requisições por segundo para não ser barrado por _rate-limit_ nos testes de carga.
 
-Dessa forma, a nossa _API_ vai conter os _plugins_ de: - _OpenID Connect_ para validar autenticação; - _rate-limit_ por _header_, isto é, por usuário; - Métricas.
+Dessa forma, a nossa _API_ vai conter os _plugins_ de:
+
+- _OpenID Connect_ para validar autenticação;
+- _rate-limit_ por _header_, isto é, por usuário;
+- Métricas.
 
 ```
 $ kubectl apply -f infra/kong-k8s/misc/apis/driver-api.yaml -n driver
@@ -1323,7 +1330,7 @@ No resources found in kong namespace.
 
 Caso o _ServiceMonitor_ não esteja habilitado, não serão coletadas métricas para a aplicação.
 
-Por que isso pode acontecer? Dependendo da ordem em que foi instalado o _Prometheus_, pode ser que, no momento em que foi instalado o _Kong_, o _ServiceMonitor_ não tenha sido instalado porque o _Prometheus_ foi instalado depois.
+Por que isso pode acontecer? Dependendo da ordem em que foi instalado o _Prometheus_, pode ser que, no momento em que foi instalado o _Kong_, o _ServiceMonitor_ não tenha sido instalado, porque o _Prometheus_ foi instalado depois.
 
 Para resolver isso, basta rodar a instalação do _Kong_ novamente.
 
@@ -1356,13 +1363,13 @@ No nosso caso, é necessário importar _dashboards_ para o _Kong_. Então, vamos
 
 ![Tela de import do Grafana](./images/tela-import-grafana.png)
 
-O _Kong_ possui um _dashboard_ pronto do _Grafana_. Se formos procurar na _Internet_ pelo _Kong_ oficial do _dashboard_ _Grafana_, vamos encontrar um com o _ID_ 7424.
+O _Kong_ possui um _dashboard_ pronto do _Grafana_. Podemos encontrar em `https://grafana.com/grafana/dashboards/7424-kong-official/` o _dashboard_ oficial do _Kong_ para o _Grafana_.
 
 Então, vamos carregar pelo ID 7424 na tela de _Import dashboard_ do _Grafana_, clicando em _Load_. Após, selecionamos _Prometheus_ e fazemos o _import_ do _dashboard_ do _Kong_.
 
 ![Tela inicial do dashboard Kong](./images/tela-inicial-do-dashboard-kong.png)
 
-Por enquanto, não tem nada relacionado ao teste de carga em si, porque os testes não foram executados ainda, mas o _dashboard_ está pronto para ser análise.
+Por enquanto, não tem nada relacionado ao teste de carga em si, porque os testes não foram executados ainda, mas o _dashboard_ está pronto para análise.
 
 Agora, como vamos fazer a criação dos testes? A partir de um _script_:
 
@@ -1458,7 +1465,7 @@ Vamos, agora, para o _Grafana_ verificar as métricas do _Kong_. No primeiro pai
 
 No primeiro gráfico de total de _RPS_, chegamos próximo a um pico de 1K de _RPS_ nos primeiros 2 minutos, baixando esse número até chegarmos a 0 _RPS_ nos próximos 4 minutos.
 
-Da mesma forma, no segundo gráfico de total de _RPS_ por rota e serviço, a rota, isto é, o serviço de _backend_ atinge um pico próximo a 1K de _RPS_ nos primeiros 2 minutos, baixando até atingir 0 nos 4 minutos seguintes.
+Da mesma forma, no segundo gráfico de total de _RPS_ por rota e serviço, a rota, isto é, o serviço de _backend_, atinge um pico próximo a 1K de _RPS_ nos primeiros 2 minutos, baixando até atingir 0 nos 4 minutos seguintes.
 
 No terceiro gráfico de total de _RPS_ por rota, serviço e _status code_, percebemos o mesmo comportamento que o gráfico anterior, além de o _status code_ permanecer como 200 tanto para a rota quanto para o serviço.
 
@@ -1474,7 +1481,7 @@ Já na primeira faixa de gráficos, é possível analisar a _performance_ do _pr
 
 Na segunda faixa de gráficos, é possível analisar a latência do _backend_ mais o _Kong_. Percebe-se um comportamento muito similar à terceira faixa, onde o tempo vai baixando, ao invés de subir, o que mostra que não estão havendo problemas de _performance_ e o _backend_ está reagindo bem ao _autoscaling_.
 
-De maneira geral, os números do _Kong_ e do _backend_ parecem satisfatórios.
+De maneira geral, os números do _Kong_ e do _backend_ são satisfatórios.
 
 O _K6_, no final, exibe um resumo dos testes:
 
@@ -1514,9 +1521,9 @@ A avaliação final é de que o _Kong_ performa de maneira aceitável em relaç�
 
 Neste momento, vamos instalar algumas ferramentas e comportamentos no _Kong_ para nos aproximarmos ainda mais de um ambiente de Produção. Nesse sentido, vamos adicionar mais um ponto que vai nos amparar em entender o comportamento da aplicação: a coleta de _logs_. Sendo assim, além do monitoramento pelo _Prometheus_, vamos adicionar uma _stack_ de coleta de _logs_.
 
-Os _logs_ vão nos auxiliar, principalmente, na análise de um problema em ambiente de Produção.
+Os _logs_ vão nos auxiliar, principalmente, na análise de problemas em ambiente de Produção.
 
-Então, a primeira coisa que iremos fazer é deletar a aplicação no _ArgoCD_.
+Então, a primeira coisa que iremos fazer é deletar a aplicação no _ArgoCD_:
 
 ![Deletando aplicação do ArgoCD](./images/deletando-aplicacao-argocd.png)
 
@@ -1526,11 +1533,11 @@ E recriar novamente:
 $ kubectl apply -f infra/argo-apps/driver.yaml -n argocd
 ```
 
-Neste momento, vamos instalar a parte da infraestrutura para fazer a coleta de _logs_. Por quê? Porque o comportamento desejado é que o _Kong_ produza _logs_ e, para isso, é necessário uma _stack_ de coleta de _logs_.
+Neste momento, vamos instalar a parte da infraestrutura para fazer a coleta de _logs_. Lembrando que o comportamento desejado é que o _Kong_ produza _logs_ e, para isso, é necessário uma _stack_ que efetue a coleta de _logs_.
 
-Neste caso, iremos utilizar um conjunto de ferramentas conhecido como _EFK_ - _Elasticsearch, Fluentd, Kibana_.
+Para tanto, iremos utilizar um conjunto de ferramentas conhecido como _EFK_ - _Elasticsearch, Fluentd, Kibana_.
 
-E como funciona o _EFK_? O _Fluentd_ é o responsável por coletar os logs e enviar para o _Elasticsearch_. Já o _Kibana_ é responsável por apresentar as informações baseado nos dados do _Elasticsearch_. Ou seja, o _Elasticsearch_ funciona como um _data store_, o _Fluentd_ como um coletor e representa a parte de visualização.
+E como funciona o _EFK_? O _Fluentd_ é o responsável por coletar os _logs_ e enviar para o _Elasticsearch_. Já o _Kibana_ é responsável por apresentar as informações baseado nos dados do _Elasticsearch_. Ou seja, o _Elasticsearch_ funciona como um _data store_, o _Fluentd_ como um coletor e o _Kibana_ representa a parte de visualização.
 
 #### Elasticsearch
 
@@ -2079,7 +2086,7 @@ curl http://127.0.0.1:24231/metrics
 
 #### Kibana
 
-Da mesma forma, vamos instalar o _Kibana_:
+Da mesma forma, seguimos com a instalação do _Kibana_:
 
 ```
 $ mkdir infra/kong-k8s/efk/kibana
@@ -2101,10 +2108,10 @@ $ vim infra/kong-k8s/efk/kibana/kibana-values.yaml
 resources:
   requests:
     cpu: "10m"
-    memory: "500Mi"
+    memory: "1Gi"
   limits:
-    cpu: "10m"
-    memory: "500Mi"
+    cpu: "100m"
+    memory: "2Gi"
 
 
 $ cd infra/kong-k8s/efk/kibana/
@@ -2140,9 +2147,9 @@ Neste momento, vamos fazer a configuração para a aplicação enviar para o _De
 
 A partir de agora, vamos fazer a configuração das _APIs_, assim, os _logs_ que serão enviados vão ser os _logs_ relacionados ao _Kong_. Assim, é o _API Gateway_ que vai mandar os _logs_ da _API_ para a _stack_ de coleta.
 
-Então, todas as requisições que vierem a partir de _/api/driver_, serão enviados os _logs_ para a _stack_ de coleta de _logs_.
+Dessa forma, para todas as requisições que vierem a partir de _/api/driver_, serão enviados os _logs_ para a _stack_ de coleta de _logs_.
 
-Deve-se ressaltar que, para ambiente de Produção, no objeto _KongIngress_, nós podemos fazer uma configuração um pouco mais específica relacionada ao _proxy_ do _Kong_. Sendo assim, em ambientes produtivos, é extremamente recomendável especificar os _timeouts_, tanto de escrita e leitura quanto de conexão. Isso é muito importante para a estabilidade da aplicação:
+Lembrando que, para ambiente de Produção, no objeto _KongIngress_, nós podemos fazer uma configuração um pouco mais específica relacionada ao _proxy_ do _Kong_. Sendo assim, para ambientes produtivos, é extremamente recomendável especificar os _timeouts_, tanto de escrita e leitura quanto de conexão. Isso é muito importante para a estabilidade da aplicação:
 
 ```
 apiVersion: configuration.konghq.com/v1
@@ -2236,7 +2243,7 @@ Conforme podemos ver na _interface_ do _ArgoCD_, o _KongPlugin_ _driver-logs_ fo
 
 ### Analisando o Kong
 
-Para ver isso funcionando, primeiramente, foi criado uma _collection_ no _Postman_ que faz _requests_ no serviço da _API_ _driver_. Assim, ela vai ficar rodando para uma quantidade de iterações que, neste caso, é de 10.000.000:
+Para ver isso funcionando, primeiramente, foi criado uma _collection_ no _Postman_ que faz _requests_ no serviço de _API_ _driver_. Assim, ela vai ficar rodando para uma quantidade de iterações que, neste caso, é de 10.000.000:
 
 ```
 $ mkdir infra/collection
@@ -2292,19 +2299,19 @@ Então, o que faremos para simular uma chamada em um ambiente um pouco mais real
 
 ![Runner do Postman](./images/runner-postman-10-milhoes-iteracoes.png)
 
-E, agora, vamos rodar o _runner_ para a _API_ _driver_:
+E, agora, iniciamos a execução do _runner_ para a _API_ _driver_:
 
 ![Runner do Postman para a API driver](./images/runner-postman-rodando-api-driver.png)
 
-Antes de acessarmos o _Kibana_, vamos acessar o _Grafana_ para monitorar o comportamento da aplicação. Podemos ver que a aplicação está tendo até 6 requisições por segundo:
+Antes de acessarmos o _Kibana_, vamos acessar o _Grafana_ para monitorar o comportamento da aplicação. Podemos ver que a aplicação está recebendo até 6 requisições por segundo:
 
 ![Grafana - número de requests](./images/grafana-numero-requests.png)
 
-O tempo do _upstream_ responder está baixo, perto de 23.9ms, se considerarmos o percentil 95:
+O tempo para o _upstream_ responder está baixo, perto de 23.9ms, se considerarmos o percentil 95:
 
 ![Grafana tempo do upstream](./images/grafana-tempo-upstream.png)
 
-O _Kong_ está respondendo rápido, se considerarmos o percentil 95, cerca de 6.5ms:
+O _Kong_ está respondendo rápido, se considerarmos o percentil 95: cerca de 6.5ms:
 
 ![Grafana desempenho do Kong](./images/grafana-desempenho-kong.png)
 
@@ -2322,23 +2329,23 @@ Neste momento, vamos fazer um _port-forward_ para fazer a configuração do _Kib
 $ kubectl port-forward svc/kibana-kibana 5601 -n logs
 ```
 
-Vamos acessar o _Kibana_ pela porta 5601:
+Acessamos o _Kibana_ pela porta 5601:
 
 ![Tela inicial do Kibana](./images/tela-inicial-kibana.png)
 
-Agora, nós vamos no menu do _Kibana_, em _Stack Management / Index Patterns_. O _Kibana_ identificou que temos dados no _Elasticsearch_,
+Agora, vamos acessar o menu do _Kibana_, em _Stack Management / Index Patterns_. O _Kibana_ já identificou que temos dados no _Elasticsearch_:
 
 ![Kibana identificou dados no Elasticsearch](./images/kibana-identificou-dados-elasticsearch.png)
 
-Vamos clicar em _Create index pattern_. Neste caso, vamos optar por não trabalhar com data e hora e vamos criar o nosso _index pattern_.
+Vamos clicar em _Create index pattern_. Neste caso, optamos por não trabalhar com data e hora e vamos criar o nosso _index pattern_:
 
 ![Kibana criando index pattern](./images/kibana-criando-index-pattern.png)
 
-Então, vamos no menu esquerdo, em _Discover_. Podemos ver que já temos bastante dados já - 10.049 documentos:
+Então, vamos no menu esquerdo, em _Discover_ e podemos ver que já temos bastante dados: 10.049 documentos:
 
 ![Kibana Discover - carregando bastante dados](./images/kibana-discover-carregando-bastante-dados.png)
 
-Vamos analisar um documento do _Kong_.
+Vamos analisar um documento do _Kong_:
 
 ![Kibana - analisando um documento](./images/kibana-analisando-um-documento.png)
 
@@ -2830,35 +2837,31 @@ Vamos analisar um documento do _Kong_.
 }
 ```
 
-Além de ter as informações do _Prometheus_, nós temos, a partir do _Kibana_, outras que podem ser interessantes. Se, por exemplo, alguém solicitar para ver os _logs_ a partir de um _request.headers.postman-token_ em específico: - Estou com problema nesse _postman-token_:
-
-Aí, pode-se fazer uma consulta pelo esquema de busca do _Kibana_, dessa forma:
+Além de contarmos com as informações do _Prometheus_, nós temos, a partir do _Kibana_, outras informações que podem ser interessantes. Se, por exemplo, alguém tiver problemas com um _request_ em específico e solicitar para ver os _logs_ a partir de um _postman-token_ (_request.headers.postman-token_), basta fazer uma consulta pelo esquema de busca do _Kibana_:
 
 ```
 request.headers.postman-token: 21061ac7-636b-490f-9a2b-8b5cdeb7ac99
 ```
 
-E, aí, são retornados apenas 3 documentos, ou seja, o escopo de pesquisa é reduzido para apenas 3 documentos:
+Neste caso, foram retornados 3 itens, ou seja, o escopo de pesquisa é reduzido para apenas 3 documentos:
 
 ![Kibana - retornou três documentos](./images/kibana-retornou-tres-documentos.png)
 
-Então, se alguém falar que teve problema em determinada requisição, consegue-se buscar especificamente por aquela requisição. E é importante, porque a gente consegue ver que não tem nenhum problema - retornou 200 (_status code 200_):
+Então, se alguém reportar que teve problema em determinada requisição, consegue-se buscar especificamente por aquela requisição. Isso é importante, porque permite confirmar se está havendo ou não algum problema. Neste caso, verificamos que o problema não está relacionado ao _API Gateway_, pois retornou 200 (_status code 200_):
 
 ![Kibana - retornou 200](./images/kibana-retornou-200.png)
 
-Em geral, esse problema vem para resolvermos com o _status code_ de 4xx ou 5xx.
+E, em geral, um problema está relacionado a um _status code_ 4xx ou 5xx.
 
-Idealmente, um _log_ de _request-id_ deveria ser colocado dentro da aplicação para termos o controle total, desde a entrada pelo _API Gateway_, passando pela _API_ do serviço de _backend_ até chegar no _data store_ do _Elasticsearch_ e nós conseguirmos realizar buscas específicas, por exemplo, poderia, se algum usuário reportasse o erro, eu conseguiria ver que, no _Kong_, não deu problema.
+Idealmente, um _log_ de _request-id_ deveria ser colocado dentro da aplicação para termos o controle total, desde a entrada pelo _API Gateway_, passando pela _API_ do serviço de _backend_ até chegar no _data store_ do _Elasticsearch_. Dessa forma, é possível realizar buscas específicas para verificar, a partir do reporte de algum usuário, se o problema ocorreu no _Kong_ ou não.
 
-Então, deve ter acontecido em outra parte da infraestrutura, porque a resposta foi 200.
+Neste caso, poderia se dizer que o problema deve ter acontecido em outra parte da infraestrutura, porque a resposta do _Kong_ foi 200.
 
-É importante que se repassem essas requisições, esse _request-id_ específico para a aplicação.
+É importante que se repassem, nas requisições, um _request-id_ específico para a aplicação. Então, além de ter as métricas, que é uma coisa mais sumarizada, obtemos a unicidade de um _request-id_, o que é muito importante no momento de se fazer o _troubleshooting_ específico de um usuário.
 
-Então, além de ter as métricas, que é uma coisa mais sumarizada, eu tenho a unicidade de um _request-id_, que é importante no momento de se fazer _troubleshooting_ específico daquele usuário.
+Sendo assim, a partir da visualização de um documento de _log_ no _Kibana_, podemos ver mais alguma coisa que complementa as métricas. Dessa forma, contamos com uma parte do ambiente a qual podemos considerar como bastante eficaz para termos em Produção: possuimos métricas, para vermos algo mais sumarizado e temos o _log_ unitário, utilizando o _request-id_ e repassando esse _request-id_ para a aplicação.
 
-Sendo assim, a partir da visualização de um documento de _log_ no _Kibana_, podemos ver mais alguma coisa que complementa as métricas. Então, eu já tenho uma parte do ambiente que eu já considero bastante eficaz para se ter em Produção. Nós já temos métricas, para vermos algo mais sumarizado, e nós já temos o _log_ unitário utilizando o _request-id_ e repassando esse _request-id_ para a aplicação.
-
-Com isso, já conseguimos ter uma certa capacidade de fazer _troubleshooting_ dentro do _Kong_. Conseguimos utilizar desde _Prometheus_ até _logs_, então, nós temos métricas sumarizadas e _log_ e unicidade. Então, a gente já tem um ambiente um pouco mais próximo de um ambiente de Produção.
+Com isso, já conseguimos ter uma certa capacidade de fazer _troubleshooting_ dentro do _Kong_. Conseguimos utilizar desde _Prometheus_ até _logs_. Logo, temos métricas sumarizadas e _log_ (unicidade); contamos, então, com um ambiente um pouco mais próximo de um ambiente de Produção.
 
 ### Destruindo a infraestrutura
 
@@ -2872,31 +2875,11 @@ cd terraform/
 terraform destroy
 ```
 
-![Cluster GKE destruído](./images/cluster-gke-destruido.png)
-
 #### Referências
-
-UDEMY. Como implementar GitFlow en Gitlab y Github. 2023. Disponível em: <https://www.udemy.com/course/como-implementar-gitflow-en-gitlab-y-github>. Acesso em: 26 mai. 2023.
-
-FULL CYCLE 3.0. Integração contínua. 2023. Disponível em: <https://plataforma.fullcycle.com.br>. Acesso em: 26 mai. 2023.
-
-FULL CYCLE 3.0. Padrões e técnicas avançadas com Git e Github. 2023. Disponível em: <https://plataforma.fullcycle.com.br>. Acesso em: 26 mai. 2023.
-
-SONARCLOUD. Clean code in your cloud workflow with {SonarCloud}. 2023. Disponível em: <https://www.sonarsource.com/products/sonarcloud>. Acesso em: 26 mai. 2023.
 
 FULL CYCLE 3.0. API Gateway com Kong e Kubernetes. 2023. Disponível em: <https://plataforma.fullcycle.com.br>. Acesso em: 31 mai. 2023.
 
-SPECTRAL. Create a Ruleset. 2023. Disponível em: <https://meta.stoplight.io/docs/spectral/01baf06bdd05a-create-a-ruleset>. Acesso em: 01 jun. 2023.
-
-TERRAFORM. Provision a GKE Cluster (Google Cloud). 2023. Disponível em: <https://developer.hashicorp.com/terraform/tutorials/kubernetes/gke>. Acesso em: 01 jun. 2023.
-
-FULL CYCLE 3.0. GitOps. 2023. Disponível em: <https://plataforma.fullcycle.com.br>. Acesso em: 02 jun. 2023.
-
 ARGO CD. Getting Started. 2023. Disponível em: <https://argo-cd.readthedocs.io/en/stable/getting_started>. Acesso em: 02 jun. 2023.
-
-FULL CYCLE 3.0. Terraform. 2023. Disponível em: <https://plataforma.fullcycle.com.br>. Acesso em: 04 jun. 2023.
-
-KUBERNETES DOCUMENTATION. Declarative Management of Kubernetes Objects Using Kustomize. 2023. Disponível em: <https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization>. Acesso em: 04 jun. 2023.
 
 KONG DOCS. Custom Resources. 2023. Disponível em: <https://docs.konghq.com/kubernetes-ingress-controller/latest/concepts/custom-resources/>. Acesso em: 09 jun. 2023.
 
