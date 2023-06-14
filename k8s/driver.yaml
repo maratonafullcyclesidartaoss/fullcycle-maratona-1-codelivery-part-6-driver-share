@@ -30,6 +30,7 @@ kind: Service
 metadata:
   name: driver
   annotations:
+    konghq.com/plugins: prometheus-driver,driver-logs
     ingress.kubernetes.io/service-upstream: "true"
   labels:
     app: driver
@@ -45,3 +46,14 @@ spec:
       port: 80
       protocol: TCP
       targetPort: 8081
+
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: driver-logs
+config:
+  host: fluentd.logs.svc.cluster.local
+  port: 24224
+  tls: false
+plugin: tcp-log
