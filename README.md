@@ -1510,6 +1510,724 @@ Chegamos à conclusão que o _Kong_ vem performando de maneira razoável, lembra
 
 A avaliação final é de que o _Kong_ performa de maneira aceitável em relação à aplicação, ou seja, o _API Gateway_ não adicionou latências consideráveis na requisição, inclusive com autenticação.
 
+### Kong em ambientes Produtivos
+
+Neste momento, vamos instalar algumas ferramentas e comportamentos no _Kong_ para nos aproximarmos ainda mais de um ambiente de Produção. Nesse sentido, vamos adicionar mais um ponto que vai nos amparar em entender o comportamento da aplicação: a coleta de _logs_. Sendo assim, além do monitoramento pelo _Prometheus_, vamos adicionar uma _stack_ de coleta de _logs_.
+
+Então, a primeira coisa que iremos fazer é deletar a aplicação no _ArgoCD_.
+
+![Deletando aplicação do ArgoCD](./images/deletando-aplicacao-argocd.png)
+
+E recriar novamente:
+
+```
+$ kubectl apply -f infra/argo-apps/driver.yaml -n argocd
+```
+
+Neste momento, vamos instalar a parte da infraestrutura para fazer a coleta de _logs_. Por quê? Porque o comportamento desejado é que o _Kong_ produza _logs_ e, para isso, é necessário uma _stack_ de coleta de _logs_.
+
+Neste caso, iremos utilizar um conjunto de ferramentas conhecido como _EFK_ - _Elasticsearch, Fluentd, Kibana_.
+
+E como funciona o _EFK_? O _Fluentd_ é o responsável por coletar os logs e enviar para o _Elasticsearch_. Já o _Kibana_ é responsável por apresentar as informações baseado nos dados do _Elasticsearch_. Ou seja, o _Elasticsearch_ funciona como um _data store_, o _Fluentd_ como um coletor e representa a parte de visualização.
+
+#### Elasticsearch
+
+Neste momento, vamos iniciar a instalação do _Elasticsearch_.
+
+```
+$ mkdir infra/kong-k8s/efk
+$ mkdir infra/kong-k8s/efk/elastic
+$ touch infra/kong-k8s/efk/elastic/elastic.sh
+$ vim infra/kong-k8s/efk/elastic/elastic.sh
+
+#!/bin/bash
+kubectl create namespace logs
+helm repo add elastic https://helm.elastic.co
+helm install elasticsearch elastic/elasticsearch \
+  --version=7.17.1 \
+  --namespace=logs \
+  -f elastic-values.yaml
+
+$ touch infra/kong-k8s/efk/elastic/elastic-values.yaml
+$ vim infra/kong-k8s/efk/elastic/elastic-values.yaml
+
+# Permit co-located instances for solitary minikube virtual machines.
+antiAffinity: "soft"
+
+# Shrink default JVM heap.
+esJavaOpts: "-Xmx128m -Xms128m"
+
+# Allocate smaller chunks of memory per pod.
+resources:
+  requests:
+    cpu: "100m"
+    memory: "512M"
+  limits:
+    cpu: "1000m"
+    memory: "512M"
+
+# Request smaller persistent volumes.
+volumeClaimTemplate:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: "data"
+  resources:
+    requests:
+      storage: 100M
+
+
+$ cd infra/kong-k8s/efk/elastic/
+$ sudo chmod -R 777 .
+$ ./elastic.sh
+
+namespace/logs created
+"elastic" already exists with the same configuration, skipping
+NAME: elasticsearch
+LAST DEPLOYED: Tue Jun 13 12:00:28 2023
+NAMESPACE: logs
+STATUS: deployed
+REVISION: 1
+NOTES:
+1. Watch all cluster members come up.
+  $ kubectl get pods --namespace=logs -l app=elasticsearch-master -w2. Test cluster health using Helm test.
+  $ helm --namespace=logs test elasticsearch
+```
+
+Agora, vamos consultar os objetos no novo _namespace_ de _logs_:
+
+```
+$ kubectl get all -n logs
+
+NAME                         READY   STATUS    RESTARTS   AGE
+pod/elasticsearch-master-0   0/1     Pending   0          2m8s
+pod/elasticsearch-master-1   0/1     Pending   0          2m8s
+pod/elasticsearch-master-2   0/1     Pending   0          2m8s
+
+NAME                                    TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)             AGE
+service/elasticsearch-master            ClusterIP   10.7.246.183   <none>        9200/TCP,9300/TCP   2m8s
+service/elasticsearch-master-headless   ClusterIP   None           <none>        9200/TCP,9300/TCP   2m8s
+
+NAME                                    READY   AGE
+statefulset.apps/elasticsearch-master   0/3     2m9s
+```
+
+E vemos que os _PODs_ permanecem no _status_ de _Pending_. Por quê?
+
+Ao descrever um dos _PODs_:
+
+```
+$ kubectl describe po elasticsearch-master-0 -n logs
+```
+
+, é possível ver que ele está associado a um _PersistentVolumeClaim_ (_PVC_):
+
+```
+Type: PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+ClaimName: elasticsearch-master-elasticsearch-master-0
+```
+
+Só que, ao listar os _PVCs_:
+
+```
+$ kubectl get pvc -n logs
+
+NAME                                          STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+elasticsearch-master-elasticsearch-master-0   Pending                                      data           52m
+elasticsearch-master-elasticsearch-master-1   Pending                                      data           52m
+elasticsearch-master-elasticsearch-master-2   Pending                                      data           52m
+```
+
+, vemos que _elasticsearch-master-elasticsearch-master-0_ não está associado (_STATUS_ _Bound_) com nenhum _PersistentVolume_ (_PV_) na coluna _VOLUME_. Então, é por esse motivo que o _POD_ permanece no _status_ de _Pending_: porque ele está associado a um _PVC_ que está aguardando ser associado a um _PV_.
+
+Então, como resolver isso? Podemos resolver isso simplesmente aplicando um novo objeto do tipo _StorageClass_. A partir da criação de um novo _StorageClass_, são alocados, automaticamente, pelo _Kubernets_, os _PVs_ para os respectivos _PVCs_.
+
+```
+$ touch infra/kong-k8s/efk/elastic/storage-class.yaml
+$ vim infra/kong-k8s/efk/elastic/storage-class.yaml
+
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: data
+  namespace: logs
+provisioner: pd.csi.storage.gke.io
+parameters:
+  type: pd-standard
+  replication-type: none
+volumeBindingMode: WaitForFirstConsumer
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.gke.io/zone
+        values:
+          - us-central1-a
+          - us-central1-b
+          - us-central1-c
+
+
+$ kubectl apply -f infra/kong-k8s/efk/elastic/storage-class.yaml -n logs
+```
+
+Lembrando que um objeto _StorageClass_ provê uma espécie de perfil para os objetos de armazenamento:
+
+> Um StorageClass fornece uma maneira para os administradores descreverem as "classes" de armazenamento que são oferecidas. Classes diferentes podem ser mapeadas para níveis de qualidade de serviço, para políticas de _backup_ ou para políticas arbitrárias determinadas pelos administradores do cluster (...) Esse conceito às vezes é chamado de "perfis" em outros sistemas de armazenamento. Fonte: <https://kubernetes.io/docs/concepts/storage/storage-classes/>.
+
+Além de prover novos _PVs_, associando-os de forma automática (_STATUS Bound_) aos _PVCs_, definir um novo objeto de _StorageClass_ resolve um potencial problema de conflito de afinidade com o nó do volume. Como assim? O _POD_ pode estar em uma zona de disponibilidade diferente da zona de disponibilidade do volume; dessa forma, o _POD_ não consegue conectar-se ao volume, gerando um erro de _volume node affinity conflict_.
+
+O nosso _cluster_, por exemplo, contém 3 nós distribuídos em 3 zonas de disponibilidade distintas. E como descobrir as zonas de disponibilidade de cada um dos nós? Para isso, precisamos entrar em cada um dos nós e procurar pelo _label_ _failure-domain.beta.kubernetes.io/zone_ ou _topology.kubernetes.io/zone_:
+
+```
+$ kubectl get nodes
+
+NAME                                                  STATUS   ROLES    AGE   VERSION
+gke-maratona-fullcyc-maratona-fullcyc-0b912d49-mh12   Ready    <none>   26h   v1.25.8-gke.500
+gke-maratona-fullcyc-maratona-fullcyc-dd923b2a-xv07   Ready    <none>   26h   v1.25.8-gke.500
+gke-maratona-fullcyc-maratona-fullcyc-f4d99fd0-fc4v   Ready    <none>   26h   v1.25.8-gke.500
+
+
+$ kubectl describe node gke-maratona-fullcyc-maratona-fullcyc-0b912d49-mh12
+
+Name:               gke-maratona-fullcyc-maratona-fullcyc-0b912d49-mh12
+Roles:              <none>
+Labels:             beta.kubernetes.io/arch=amd64
+                    beta.kubernetes.io/instance-type=n1-standard-1
+                    beta.kubernetes.io/os=linux
+                    cloud.google.com/gke-boot-disk=pd-balanced
+                    cloud.google.com/gke-container-runtime=containerd
+                    cloud.google.com/gke-cpu-scaling-level=1
+                    cloud.google.com/gke-logging-variant=DEFAULT
+                    cloud.google.com/gke-max-pods-per-node=110
+                    cloud.google.com/gke-nodepool=maratona-fullcycle-388513-gke
+                    cloud.google.com/gke-os-distribution=cos
+                    cloud.google.com/gke-provisioning=standard
+                    cloud.google.com/gke-stack-type=IPV4
+                    cloud.google.com/machine-family=n1
+                    cloud.google.com/private-node=false
+                    env=maratona-fullcycle-388513
+                    failure-domain.beta.kubernetes.io/region=us-central1
+                    failure-domain.beta.kubernetes.io/zone=us-central1-a
+                    kubernetes.io/arch=amd64
+                    kubernetes.io/hostname=gke-maratona-fullcyc-maratona-fullcyc-0b912d49-mh12
+                    kubernetes.io/os=linux
+                    node.kubernetes.io/instance-type=n1-standard-1
+                    topology.gke.io/zone=us-central1-a
+                    topology.kubernetes.io/region=us-central1
+                    topology.kubernetes.io/zone=us-central1-a
+```
+
+#### Fluentd
+
+O _Fluentd_ realiza a coleta de _logs_ via _TCP_. Já o _Kong_ envia os _logs_ em um formato _JSON_. Após fazer a coleta, os _logs_ são enviados para o _Elasticsearch_.
+
+```
+$ mkdir infra/kong-k8s/efk/fluentd
+$ touch infra/kong-k8s/efk/fluentd/fluentd.sh
+$ vim infra/kong-k8s/efk/fluentd/fluentd.sh
+
+#!/bin/bash
+helm repo add fluent https://fluent.github.io/helm-charts
+helm install fluentd fluent/fluentd --namespace=logs -f fluentd-values.yaml
+
+$ touch infra/kong-k8s/efk/fluentd/fluentd-values.yaml
+$ vim infra/kong-k8s/efk/fluentd/fluentd-values.yaml
+
+nameOverride: ""
+fullnameOverride: ""
+
+# DaemonSet, Deployment or StatefulSet
+kind: "DaemonSet"
+
+# # Only applicable for Deployment or StatefulSet
+# replicaCount: 1
+
+image:
+  repository: "fluent/fluentd-kubernetes-daemonset"
+  pullPolicy: "IfNotPresent"
+  tag: ""
+
+## Optional array of imagePullSecrets containing private registry credentials
+## Ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: null
+
+rbac:
+  create: true
+
+# Configure podsecuritypolicy
+# Ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
+podSecurityPolicy:
+  enabled: true
+  annotations: {}
+
+## Security Context policies for controller pods
+## See https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/ for
+## notes on enabling and using sysctls
+##
+podSecurityContext:
+  {}
+  # seLinuxOptions:
+#   type: "spc_t"
+
+securityContext:
+  {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+# runAsUser: 1000
+
+# Configure the livecycle
+# Ref: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+lifecycle:
+  {}
+  # preStop:
+  #   exec:
+#     command: ["/bin/sh", "-c", "sleep 20"]
+
+# Configure the livenessProbe
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+livenessProbe:
+  httpGet:
+    path: /metrics
+    port: metrics
+  # initialDelaySeconds: 0
+  # periodSeconds: 10
+  # timeoutSeconds: 1
+  # successThreshold: 1
+  # failureThreshold: 3
+
+# Configure the readinessProbe
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+readinessProbe:
+  httpGet:
+    path: /metrics
+    port: metrics
+  # initialDelaySeconds: 0
+  # periodSeconds: 10
+  # timeoutSeconds: 1
+  # successThreshold: 1
+  # failureThreshold: 3
+
+resources:
+  {}
+  # requests:
+  #   cpu: 10m
+  #   memory: 128Mi
+  # limits:
+#   memory: 128Mi
+
+## only available if kind is Deployment
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+  ## see https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/#autoscaling-on-multiple-metrics-and-custom-metrics
+  customRules:
+    []
+    # - type: Pods
+    #   pods:
+    #     metric:
+    #       name: packets-per-second
+    #     target:
+    #       type: AverageValue
+  #       averageValue: 1k
+  ## see https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#support-for-configurable-scaling-behavior
+  # behavior:
+  #   scaleDown:
+  #     policies:
+  #       - type: Pods
+  #         value: 4
+  #         periodSeconds: 60
+  #       - type: Percent
+  #         value: 10
+  #         periodSeconds: 60
+
+# priorityClassName: "system-node-critical"
+
+nodeSelector: {}
+
+## Node tolerations for server scheduling to nodes with taints
+## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+##
+tolerations: []
+# - key: null
+#   operator: Exists
+#   effect: "NoSchedule"
+
+## Affinity and anti-affinity
+## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+##
+affinity: {}
+
+## Annotations to be added to fluentd DaemonSet/Deployment
+##
+annotations: {}
+
+## Labels to be added to fluentd DaemonSet/Deployment
+##
+labels: {}
+
+## Annotations to be added to fluentd pods
+##
+podAnnotations: {}
+
+## Labels to be added to fluentd pods
+##
+podLabels: {}
+
+## How long (in seconds) a pods needs to be stable before progressing the deployment
+##
+minReadySeconds:
+
+## How long (in seconds) a pod may take to exit (useful with lifecycle hooks to ensure lb deregistration is done)
+##
+terminationGracePeriodSeconds:
+
+## Deployment strategy / DaemonSet updateStrategy
+##
+updateStrategy: {}
+#   type: RollingUpdate
+#   rollingUpdate:
+#     maxUnavailable: 1
+
+## Additional environment variables to set for fluentd pods
+env:
+  - name: "FLUENTD_CONF"
+    value: "../../../etc/fluent/fluent.conf"
+    # - name: FLUENT_ELASTICSEARCH_HOST
+    #   value: "elasticsearch-master"
+    # - name: FLUENT_ELASTICSEARCH_PORT
+    #   value: "9200"
+
+envFrom: []
+
+initContainers: []
+
+# volumes:
+#   - name: varlog
+#     hostPath:
+#       path: /var/log
+#   - name: varlibdockercontainers
+#     hostPath:
+#       path: /var/lib/docker/containers
+#   - name: etcfluentd-main
+#     configMap:
+#       name: fluentd-main
+#       defaultMode: 0777
+#   - name: etcfluentd-config
+#     configMap:
+#       name: fluentd-config
+#       defaultMode: 0777
+
+# volumeMounts:
+# - name: varlog
+#   mountPath: /var/log
+# - name: varlibdockercontainers
+#   mountPath: /var/lib/docker/containers
+#   readOnly: true
+# - name: etcfluentd-main
+#   mountPath: /etc/fluent
+# - name: etcfluentd-config
+#   mountPath: /etc/fluent/config.d/
+
+## Only available if kind is StatefulSet
+## Fluentd persistence
+##
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+## Fluentd service
+##
+service:
+  type: "ClusterIP"
+  annotations: {}
+  # loadBalancerIP:
+  # externalTrafficPolicy: Local
+  ports:
+    - name: "forwarder"
+      protocol: TCP
+      containerPort: 24224
+
+## Prometheus Monitoring
+##
+metrics:
+  serviceMonitor:
+    enabled: false
+    additionalLabels:
+      release: prometheus-operator
+    namespace: ""
+    namespaceSelector: {}
+    ## metric relabel configs to apply to samples before ingestion.
+    ##
+    metricRelabelings: []
+    # - sourceLabels: [__name__]
+    #   separator: ;
+    #   regex: ^fluentd_output_status_buffer_(oldest|newest)_.+
+    #   replacement: $1
+    #   action: drop
+    ## relabel configs to apply to samples after ingestion.
+    ##
+    relabelings: []
+    # - sourceLabels: [__meta_kubernetes_pod_node_name]
+    #   separator: ;
+    #   regex: ^(.*)$
+    #   targetLabel: nodename
+    #   replacement: $1
+    #   action: replace
+    ## Additional serviceMonitor config
+    ##
+    # jobLabel: fluentd
+    # scrapeInterval: 30s
+    # scrapeTimeout: 5s
+    # honorLabels: true
+
+  prometheusRule:
+    enabled: false
+    additionalLabels: {}
+    namespace: ""
+    rules: []
+    # - alert: FluentdDown
+    #   expr: up{job="fluentd"} == 0
+    #   for: 5m
+    #   labels:
+    #     context: fluentd
+    #     severity: warning
+    #   annotations:
+    #     summary: "Fluentd Down"
+    #     description: "{{ $labels.pod }} on {{ $labels.nodename }} is down"
+    # - alert: FluentdScrapeMissing
+    #   expr: absent(up{job="fluentd"} == 1)
+    #   for: 15m
+    #   labels:
+    #     context: fluentd
+    #     severity: warning
+    #   annotations:
+    #     summary: "Fluentd Scrape Missing"
+    #     description: "Fluentd instance has disappeared from Prometheus target discovery"
+
+## Grafana Monitoring Dashboard
+##
+dashboards:
+  enabled: "true"
+  namespace: ""
+  labels:
+    grafana_dashboard: '"1"'
+
+## Fluentd list of plugins to install
+##
+plugins: []
+# - fluent-plugin-out-http
+
+## Add fluentd config files from K8s configMaps
+##
+configMapConfigs:
+  - fluentd-prometheus-conf
+# - fluentd-systemd-conf
+
+## Fluentd configurations:
+##
+fileConfigs:
+  01_sources.conf: |-
+    ## logs from kong
+    <source>
+      @type tcp
+      tag tcp.events # required
+      <parse>
+        @type json
+      </parse>
+      port 24224   # optional. 5170 by default
+      bind 0.0.0.0 # optional. 0.0.0.0 by default
+      delimiter "\n" # optional. "\n" (newline) by default
+    </source>
+
+  02_outputs.conf: |-
+    <match **>
+      @type elasticsearch
+      host "elasticsearch-master"
+      port 9200
+      path ""
+      user elastic
+      password changeme
+    </match>
+
+$ cd infra/kong-k8s/efk/fluentd
+$ sudo chmod -R 777 .
+$ ./fluentd.sh
+
+NAME: fluentd
+LAST DEPLOYED: Tue Jun 13 18:59:10 2023
+NAMESPACE: logs
+STATUS: deployed
+REVISION: 1
+NOTES:
+Get Fluentd build information by running these commands:
+
+export POD_NAME=$(kubectl get pods --namespace logs -l "app.kubernetes.io/name=fluentd,app.kubernetes.io/instance=fluentd" -o jsonpath="{.items[0].metadata.name}")
+kubectl --namespace logs port-forward $POD_NAME 24231:24231
+curl http://127.0.0.1:24231/metrics
+```
+
+#### Kibana
+
+Da mesma forma, vamos instalar o _Kibana_:
+
+```
+$ mkdir infra/kong-k8s/efk/kibana
+$ touch infra/kong-k8s/efk/kibana/elastic.sh
+$ vim infra/kong-k8s/efk/kibana/elastic.sh
+
+#!/bin/bash
+helm install kibana elastic/kibana \
+  --version=7.17.1 \
+  --namespace=logs \
+  --set service.type=NodePort \
+  --set service.nodePort=31000 \
+  -f kibana-values.yaml
+
+$ touch infra/kong-k8s/efk/kibana/kibana-values.yaml
+$ vim infra/kong-k8s/efk/kibana/kibana-values.yaml
+
+# Allocate smaller chunks of memory per pod.
+resources:
+  requests:
+    cpu: "10m"
+    memory: "500Mi"
+  limits:
+    cpu: "10m"
+    memory: "500Mi"
+
+
+$ cd infra/kong-k8s/efk/kibana/
+$ sudo chmod -R 777 .
+$ ./kibana.sh
+
+NAME: kibana
+LAST DEPLOYED: Tue Jun 13 19:17:18 2023
+NAMESPACE: logs
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+```
+
+Neste momento, vamos consultar o _namespace_ _logs_ para confirmar que todos os objetos da _stack_ _EFK_ foram criados:
+
+```
+$ kubectl get po -n logs
+
+NAME                            READY   STATUS    RESTARTS   AGE
+elasticsearch-master-0          1/1     Running   0          4h30m
+elasticsearch-master-1          1/1     Running   0          4h30m
+elasticsearch-master-2          1/1     Running   0          4h30m
+fluentd-c2h96                   1/1     Running   0          136m
+fluentd-p5qtf                   1/1     Running   0          136m
+fluentd-vzrfx                   1/1     Running   15         111m
+kibana-kibana-5d7cbd95f-8phww   1/1     Running   0          16m
+```
+
+#### Configurando coleta de logs
+
+Neste momento, vamos fazer a configuração para a aplicação enviar para o _Deployment_ da _API_ os _logs_ para a _stack_ de coleta.
+
+A partir de agora, vamos fazer a configuração das _APIs_, assim, os _logs_ que serão enviados vão ser os _logs_ relacionados ao _Kong_. Assim, é o _API Gateway_ que vai mandar os _logs_ da _API_ para a _stack_ de coleta.
+
+Então, todas as requisições que vierem a partir de _/api/driver_, serão enviados os _logs_ para a _stack_ de coleta de _logs_.
+
+Deve-se ressaltar que, para ambiente de Produção, no objeto _KongIngress_, nós podemos fazer uma configuração um pouco mais específica relacionada ao _proxy_ do _Kong_. Sendo assim, em ambientes produtivos, é extremamente recomendável especificar os _timeouts_, tanto de escrita e leitura quanto de conexão. Isso é muito importante para a estabilidade da aplicação:
+
+```
+apiVersion: configuration.konghq.com/v1
+kind: KongIngress
+metadata:
+  name: do-not-preserve-host
+route:
+  preserve_host: false
+  strip_path: true
+upstream:
+  host_header: driver.driver.svc
+proxy:
+  connect_timeout: 2000
+  read_timeout: 2000
+  write_timeout: 2000
+```
+
+Neste momento, vamos criar uma nova configuração de _plugin_ para a coleta de _logs_. Note que o _host_ indica aonde está a localizado a _stack_ de coleta de _logs_.
+
+```
+$ vim k8s/driver.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: driver
+spec:
+  selector:
+    matchLabels:
+      app: driver
+  template:
+    metadata:
+      labels:
+        app: driver
+    spec:
+      containers:
+        - name: driver
+          image: driver
+          resources:
+            requests:
+              cpu: "0.005"
+              memory: 20Mi
+            limits:
+              cpu: "0.005"
+              memory: 25Mi
+          ports:
+            - containerPort: 8081
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: driver
+  annotations:
+    konghq.com/plugins: prometheus-driver,driver-logs
+    ingress.kubernetes.io/service-upstream: "true"
+  labels:
+    app: driver
+    stack: echo
+    interface: rest
+    language: golang
+spec:
+  type: LoadBalancer
+  selector:
+    app: driver
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8081
+
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: driver-logs
+config:
+  host: fluentd.logs.svc.cluster.local
+  port: 24224
+  tls: false
+plugin: tcp-log
+```
+
+Além disso, podemos perceber que a configuração do _log_ precisa ser feita no _Service_ também, adicionado à anotação _konghq.com/plugins_ a configuração da coleta de _logs_, ou seja, _driver-logs_.
+
+Isso deve ser suficiente para fazer funcionar a coleta de _logs_ em nossa aplicação. Agora, é necessário subir essas alterações para o _GitHub_, de forma que o _ArgoCD_ sincronize com o _cluster Kubernetes_.
+
 ### Destruindo a infraestrutura
 
 Chegou o momento de liberar os recursos no ambiente _cloud_.
