@@ -60,9 +60,9 @@ Nesta sexta versão, trabalhamos com tecnologias relacionadas aos processos de m
 
 Nesta parte do projeto, estamos nos aproximando mais de um ambiente de Produção, aonde integramos uma ferramenta de _API Gateway_, o _Kong API Gateway_, ao _cluster Kubernetes_. O _Kong_, além de desempenhar o seu papel de ponto único de entrada (_entrypoint_) na infraestrutura, roteando as chamadas para os respectivos serviços no _cluster_, também permite adicionar _plugins_ que servirão para:
 
-    1. Aplicar autenticação às rotas, utilizando o padrão _OpenID Connect_;
-    2. Aplicar _rate limiting_ às rotas;
-    3. Aplicar coleta de métricas e logs para monitorarmos o comportamento da aplicação e do próprio _API Gateway_ em Produção.
+1. Aplicar autenticação às rotas, utilizando o padrão _OpenID Connect_;
+2. Aplicar _rate limiting_ às rotas;
+3. Aplicar coleta de métricas e logs para monitorarmos o comportamento da aplicação e do próprio _API Gateway_ em Produção.
 
 ### Iniciando a infraestrutura
 
